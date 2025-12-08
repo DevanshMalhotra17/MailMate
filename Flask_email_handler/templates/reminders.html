@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Reminders & To-Do</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Additional styles specific to reminders page */
+        .header-btn {
+            padding: 12px 20px;
+            background: rgba(255, 255, 255, 0.95);
+            border: none;
+            border-radius: 10px;
+            color: #667eea;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .header-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .section-title {
+            color: white;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fas fa-envelope-open-text"></i>
+                <h2>Email Manager</h2>
+            </div>
+            <nav class="nav-menu">
+                <a href="/" class="nav-item">
+                    <i class="fas fa-inbox"></i>
+                    <span>Inbox</span>
+                </a>
+                <a href="/analysis" class="nav-item">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Analysis</span>
+                </a>
+                <a href="/reminders" class="nav-item active">
+                    <i class="fas fa-bell"></i>
+                    <span>Reminders</span>
+                </a>
+                <a href="/spam" class="nav-item">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Spam</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <button class="refresh-btn" onclick="generateTodoList()" style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); margin-bottom: 10px;">
+                    <i class="fas fa-magic"></i>
+                    <span>Generate To-Do List</span>
+                </button>
+                <button class="refresh-btn" onclick="openSendEmailModal()">
+                    <i class="fas fa-paper-plane"></i>
+                    <span>Send Email</span>
+                </button>
+                <button class="refresh-btn" onclick="openAIEmailModal()" style="background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%); margin-top: 10px;">
+                    <i class="fas fa-robot"></i>
+                    <span>Generate AI Email</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header">
+                <div class="header-left">
+                    <h1>Email Reminders & To-Do</h1>
+                    <p class="subtitle">Never miss an important follow-up</p>
+                </div>
+                <div class="header-actions" style="display: flex; gap: 10px;">
+                    <button class="header-btn" onclick="filterReminders('all')" id="filterAll">
+                        <i class="fas fa-list"></i> All
+                    </button>
+                    <button class="header-btn" onclick="filterReminders('today')" id="filterToday">
+                        <i class="fas fa-calendar-day"></i> Today
+                    </button>
+                    <button class="header-btn" onclick="filterReminders('urgent')" id="filterUrgent">
+                        <i class="fas fa-exclamation-circle"></i> Urgent
+                    </button>
+                </div>
+            </header>
+
+            <!-- Reminder Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon orange">
+                        <i class="fas fa-bell"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ reminders|length }}</h3>
+                        <p>Total Reminders</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon red">
+                        <i class="fas fa-exclamation-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ urgent_reminders }}</h3>
+                        <p>Urgent</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon blue">
+                        <i class="fas fa-calendar-check"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="todayCount">{{ upcoming_reminders }}</h3>
+                        <p>Today's Tasks</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reminders List -->
+            <div class="reminders-container">
+                <h2 class="section-title">Active Reminders</h2>
+                
+                {% if reminders|length == 0 %}
+                <div class="empty-state">
+                    <i class="fas fa-bell-slash"></i>
+                    <h3>No Reminders Found</h3>
+                    <p>You don't have any reminders set up yet.</p>
+                </div>
+                {% else %}
+                <div class="reminder-list" id="reminderList">
+                    {% for email in reminders %}
+                    <div class="reminder-card {% if email.urgency == 'high' %}urgent{% endif %}" data-urgency="{{ email.urgency }}" data-date="{{ email.date }}">
+                        <div class="reminder-header">
+                            <div class="reminder-icon">
+                                <i class="fas fa-bell"></i>
+                            </div>
+                            <div class="reminder-details">
+                                <h3>{{ email.reminder }}</h3>
+                                <p class="reminder-date">
+                                    <i class="fas fa-calendar"></i>
+                                    {% if email.date and email.date != 'none' %}
+                                        Due: {{ email.date }}
+                                    {% else %}
+                                        No due date set
+                                    {% endif %}
+                                </p>
+                            </div>
+                            {% if email.urgency == 'high' %}
+                            <span class="urgent-badge">
+                                <i class="fas fa-bolt"></i> URGENT
+                            </span>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="reminder-body">
+                            <div class="email-info">
+                                <div class="info-item">
+                                    <strong>From:</strong>
+                                    <span>{{ email.from }}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Subject:</strong>
+                                    <span>{{ email.subject }}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Category:</strong>
+                                    <span class="badge badge-category">{{ email.category|default('Other') }}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="reminder-preview">
+                                {{ email.body[:150]|default('No preview available') }}...
+                            </div>
+                        </div>
+                        
+                        <div class="reminder-footer">
+                            <button class="btn-view" onclick="viewEmailDetails('{{ email.subject }}', '{{ email.from }}', '{{ email.body }}')">
+                                <i class="fas fa-eye"></i> View Full Email
+                            </button>
+                            <button class="btn-view" onclick="markComplete('{{ email.id }}')" style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); margin-left: 10px;">
+                                <i class="fas fa-check"></i> Mark Complete
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </main>
+    </div>
+
+    <!-- Email Detail Modal -->
+    <div id="emailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalSubject">Email Details</h2>
+                <span class="close" onclick="closeModal('emailModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="detail-row">
+                    <strong>From:</strong>
+                    <span id="modalFrom"></span>
+                </div>
+                <div class="detail-row full-width">
+                    <strong>Full Message:</strong>
+                    <div class="email-body-full" id="modalBody"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Send Email Modal -->
+    <div id="sendEmailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Send Email</h2>
+                <span class="close" onclick="closeModal('sendEmailModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="sendEmailForm" onsubmit="sendEmail(event)">
+                    <div class="detail-row full-width">
+                        <strong>To:</strong>
+                        <input type="email" id="emailRecipient" class="search-box input" placeholder="recipient@example.com" required style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    </div>
+                    <div class="detail-row full-width">
+                        <strong>Subject:</strong>
+                        <input type="text" id="emailSubject" class="search-box input" placeholder="Email subject" required style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    </div>
+                    <div class="detail-row full-width">
+                        <strong>Message:</strong>
+                        <textarea id="emailBody" rows="8" placeholder="Write your message here..." required style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-family: inherit;"></textarea>
+                    </div>
+                    <button type="submit" class="btn-view" style="width: 100%; justify-content: center;">
+                        <i class="fas fa-paper-plane"></i> Send Email
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Email Generation Modal -->
+    <div id="aiEmailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%);">
+                <h2>Generate AI Email</h2>
+                <span class="close" onclick="closeModal('aiEmailModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="aiEmailForm" onsubmit="generateAIEmail(event)">
+                    <div class="detail-row full-width">
+                        <strong>Email Type:</strong>
+                        <select id="emailType" class="search-box input" required style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                            <option value="">Select email type...</option>
+                            <option value="professional">Professional/Business</option>
+                            <option value="followup">Follow-up</option>
+                            <option value="thankyou">Thank You</option>
+                            <option value="apology">Apology</option>
+                            <option value="invitation">Invitation</option>
+                            <option value="response">Response</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    <div class="detail-row full-width">
+                        <strong>Email Purpose/Details:</strong>
+                        <textarea id="emailPurpose" rows="6" placeholder="Describe what the email should be about..." required style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-family: inherit;"></textarea>
+                    </div>
+                    <button type="submit" class="btn-view" style="width: 100%; justify-content: center; background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%);">
+                        <i class="fas fa-magic"></i> Generate Email
+                    </button>
+                </form>
+                <div id="aiEmailOutput" style="display: none; margin-top: 20px;">
+                    <div class="detail-row full-width">
+                        <strong>Generated Email:</strong>
+                        <div class="email-body-full" id="generatedEmail"></div>
+                    </div>
+                    <button class="btn-view" onclick="copyToClipboard()" style="width: 100%; justify-content: center; margin-top: 10px;">
+                        <i class="fas fa-copy"></i> Copy to Clipboard
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function viewEmailDetails(subject, from, body) {
+            document.getElementById('modalSubject').textContent = subject;
+            document.getElementById('modalFrom').textContent = from;
+            document.getElementById('modalBody').textContent = body;
+            document.getElementById('emailModal').style.display = 'block';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        function openSendEmailModal() {
+            document.getElementById('sendEmailModal').style.display = 'block';
+        }
+
+        function openAIEmailModal() {
+            document.getElementById('aiEmailModal').style.display = 'block';
+            document.getElementById('aiEmailOutput').style.display = 'none';
+        }
+
+        async function sendEmail(event) {
+            event.preventDefault();
+            
+            const recipient = document.getElementById('emailRecipient').value;
+            const subject = document.getElementById('emailSubject').value;
+            const body = document.getElementById('emailBody').value;
+            
+            try {
+                const response = await fetch('/api/send_email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ recipient, subject, body })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Email logged successfully!');
+                    closeModal('sendEmailModal');
+                    document.getElementById('sendEmailForm').reset();
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to send email');
+            }
+        }
+
+        async function generateAIEmail(event) {
+            event.preventDefault();
+            
+            const emailType = document.getElementById('emailType').value;
+            const purpose = document.getElementById('emailPurpose').value;
+            
+            try {
+                const response = await fetch('/api/generate_ai_email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email_type: emailType, purpose })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('generatedEmail').textContent = result.email;
+                    document.getElementById('aiEmailOutput').style.display = 'block';
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to generate email');
+            }
+        }
+
+        async function generateTodoList() {
+            if (!confirm('Generate AI-enhanced to-do list from today\'s reminders?')) return;
+            
+            try {
+                const response = await fetch('/api/generate_todo', {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('To-do list generated successfully!\nFile: ' + result.filename);
+                    window.open('/download/' + result.filename, '_blank');
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to generate to-do list');
+            }
+        }
+
+        function copyToClipboard() {
+            const text = document.getElementById('generatedEmail').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Email copied to clipboard!');
+            });
+        }
+
+        async function markComplete(emailId) {
+            if (!confirm('Mark this reminder as complete?')) return;
+            
+            try {
+                const response = await fetch('/api/mark_complete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email_id: emailId })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Reminder marked as complete!');
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to mark complete');
+            }
+        }
+
+        function filterReminders(type) {
+            const cards = document.querySelectorAll('.reminder-card');
+            const today = new Date().toISOString().split('T')[0];
+            let count = 0;
+            
+            // Reset button styles
+            document.querySelectorAll('.header-btn').forEach(btn => {
+                btn.style.background = 'rgba(255, 255, 255, 0.95)';
+                btn.style.color = '#667eea';
+            });
+            
+            // Highlight active button
+            const activeBtn = document.getElementById('filter' + type.charAt(0).toUpperCase() + type.slice(1));
+            if (activeBtn) {
+                activeBtn.style.background = '#667eea';
+                activeBtn.style.color = 'white';
+            }
+            
+            cards.forEach(card => {
+                const urgency = card.getAttribute('data-urgency');
+                const date = card.getAttribute('data-date');
+                
+                let show = false;
+                
+                if (type === 'all') {
+                    show = true;
+                } else if (type === 'today') {
+                    show = date && date.includes(today);
+                } else if (type === 'urgent') {
+                    show = urgency === 'high';
+                }
+                
+                card.style.display = show ? 'block' : 'none';
+                if (show) count++;
+            });
+            
+            // Update today count if filtering by today
+            if (type === 'today') {
+                document.getElementById('todayCount').textContent = count;
+            }
+        }
+
+        // Close modals on outside click
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+            }
+        }
+    </script>
+
+    <style>
+        .header-btn {
+            padding: 12px 20px;
+            background: rgba(255, 255, 255, 0.95);
+            border: none;
+            border-radius: 10px;
+            color: #667eea;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .header-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .section-title {
+            color: white;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+    </style>
+</body>
+</html>

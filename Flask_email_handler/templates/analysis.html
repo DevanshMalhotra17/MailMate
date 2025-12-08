@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Analysis</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fas fa-envelope-open-text"></i>
+                <h2>Email Manager</h2>
+            </div>
+            <nav class="nav-menu">
+                <a href="/" class="nav-item">
+                    <i class="fas fa-inbox"></i>
+                    <span>Inbox</span>
+                </a>
+                <a href="/analysis" class="nav-item active">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Analysis</span>
+                </a>
+                <a href="/reminders" class="nav-item">
+                    <i class="fas fa-bell"></i>
+                    <span>Reminders</span>
+                </a>
+                <a href="/spam" class="nav-item">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Spam</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+    <button class="refresh-btn" onclick="generateTodoList()" style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); margin-bottom: 10px;">
+        <i class="fas fa-magic"></i>
+        <span>Generate To-Do List</span>
+    </button>
+    <button class="refresh-btn" onclick="openSendEmailModal()">
+        <i class="fas fa-paper-plane"></i>
+        <span>Send Email</span>
+    </button>
+    <button class="refresh-btn" onclick="openAIEmailModal()" style="background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%); margin-top: 10px;">
+        <i class="fas fa-robot"></i>
+        <span>Generate AI Email</span>
+    </button>
+</div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header">
+                <div class="header-left">
+                    <h1>Email Analysis</h1>
+                    <p class="subtitle">Insights and trends from your emails</p>
+                </div>
+            </header>
+
+            <!-- Analysis Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon blue">
+                        <i class="fas fa-smile"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="positiveCount">{{ positive_count }}</h3>
+                        <p>Positive Emails</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon red">
+                        <i class="fas fa-frown"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="negativeCount">{{ negative_count }}</h3>
+                        <p>Negative Emails</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon orange">
+                        <i class="fas fa-meh"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="neutralCount">{{ neutral_count }}</h3>
+                        <p>Neutral Emails</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green">
+                        <i class="fas fa-tags"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ categories|length }}</h3>
+                        <p>Categories</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="charts-container">
+                <div class="chart-card">
+                    <h3>Email Categories Distribution</h3>
+                    <canvas id="categoryChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>Sentiment Analysis</h3>
+                    <canvas id="sentimentChart"></canvas>
+                </div>
+            </div>
+
+            <div class="charts-container">
+                <div class="chart-card">
+                    <h3>Urgency Levels</h3>
+                    <canvas id="urgencyChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>Email Activity Timeline</h3>
+                    <canvas id="timelineChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Category Breakdown -->
+            <div class="category-breakdown">
+                <h2>Category Breakdown</h2>
+                <div class="category-list">
+                    {% for category, count in categories.items() %}
+                    <div class="category-item">
+                        <div class="category-name">
+                            <i class="fas fa-folder"></i>
+                            <span>{{ category }}</span>
+                        </div>
+                        <div class="category-count">{{ count }} emails</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Category Chart
+        const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+        new Chart(categoryCtx, {
+            type: 'doughnut',
+            data: {
+                labels: {{ category_labels|tojson }},
+                datasets: [{
+                    data: {{ category_data|tojson }},
+                    backgroundColor: [
+                        '#667eea', '#48bb78', '#ed8936', '#f56565',
+                        '#4299e1', '#9f7aea', '#38b2ac', '#ed64a6'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // Sentiment Chart
+        const sentimentCtx = document.getElementById('sentimentChart').getContext('2d');
+        new Chart(sentimentCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Positive', 'Neutral', 'Negative'],
+                datasets: [{
+                    label: 'Number of Emails',
+                    data: [{{ positive_count }}, {{ neutral_count }}, {{ negative_count }}],
+                    backgroundColor: ['#48bb78', '#ed8936', '#f56565']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Urgency Chart
+        const urgencyCtx = document.getElementById('urgencyChart').getContext('2d');
+        new Chart(urgencyCtx, {
+            type: 'pie',
+            data: {
+                labels: {{ urgency_labels|tojson }},
+                datasets: [{
+                    data: {{ urgency_data|tojson }},
+                    backgroundColor: ['#f56565', '#ed8936', '#48bb78']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // Timeline Chart
+        const timelineCtx = document.getElementById('timelineChart').getContext('2d');
+        new Chart(timelineCtx, {
+            type: 'line',
+            data: {
+                labels: {{ timeline_labels|tojson }},
+                datasets: [{
+                    label: 'Emails Received',
+                    data: {{ timeline_data|tojson }},
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

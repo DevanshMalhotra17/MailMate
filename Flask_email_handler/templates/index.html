@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Manager Dashboard</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fas fa-envelope-open-text"></i>
+                <h2>Email Manager</h2>
+            </div>
+            <nav class="nav-menu">
+                <a href="/" class="nav-item active" data-page="inbox">
+                    <i class="fas fa-inbox"></i>
+                    <span>Inbox</span>
+                </a>
+                <a href="/analysis" class="nav-item" data-page="analysis">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Analysis</span>
+                </a>
+                <a href="/reminders" class="nav-item" data-page="reminders">
+                    <i class="fas fa-bell"></i>
+                    <span>Reminders</span>
+                </a>
+                <a href="/spam" class="nav-item" data-page="spam">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Spam</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <button class="refresh-btn" onclick="generateTodoList()" style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); margin-bottom: 10px;">
+                    <i class="fas fa-magic"></i>
+                    <span>Generate To-Do List</span>
+                </button>
+                <button class="refresh-btn" onclick="openSendEmailModal()">
+                    <i class="fas fa-paper-plane"></i>
+                    <span>Send Email</span>
+                </button>
+                <button class="refresh-btn" onclick="openAIEmailModal()" style="background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%); margin-top: 10px;">
+                    <i class="fas fa-robot"></i>
+                    <span>Generate AI Email</span>
+                </button>
+                <button class="refresh-btn" onclick="refreshEmails()" style="margin-top: 10px;">
+                    <i class="fas fa-sync-alt"></i>
+                    <span>Refresh Emails</span>
+                </button>
+                <p class="last-update">Last update: <span id="lastUpdate">--:--</span></p>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <h1 id="pageTitle">Inbox</h1>
+                    <p class="subtitle">Manage your emails efficiently</p>
+                </div>
+                <div class="header-right">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="searchInput" placeholder="Search emails..." onkeyup="filterEmails()">
+                    </div>
+                </div>
+            </header>
+
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon blue">
+                        <i class="fas fa-envelope"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="totalEmails">{{ emails|length }}</h3>
+                        <p>Total Emails</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="processedEmails">
+                            {{ emails|selectattr('spam', 'defined')|list|length }}
+                        </h3>
+                        <p>Processed</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon orange">
+                        <i class="fas fa-bell"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="remindersCount">
+                            {{ emails|selectattr('reminder', 'defined')|rejectattr('reminder', 'equalto', '')|list|length }}
+                        </h3>
+                        <p>Reminders</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon red">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="spamCount">
+                            {{ emails|selectattr('spam', 'equalto', 'true')|list|length }}
+                        </h3>
+                        <p>Spam Detected</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter Tabs -->
+            <div class="filter-tabs">
+                <button class="tab-btn active" onclick="filterByCategory('all')">All</button>
+                <button class="tab-btn" onclick="filterByCategory('Work')">Work</button>
+                <button class="tab-btn" onclick="filterByCategory('Personal')">Personal</button>
+                <button class="tab-btn" onclick="filterByCategory('Finance')">Finance</button>
+                <button class="tab-btn" onclick="filterByCategory('Promotions')">Promotions</button>
+            </div>
+
+            <!-- Email List -->
+            <div class="email-list" id="emailList">
+                {% for email in emails %}
+                <div class="email-card" 
+                     data-category="{{ email.category|default('Other') }}"
+                     data-spam="{{ email.spam|default('false') }}"
+                     onclick="showEmailDetails({{ loop.index0 }})">
+                    <div class="email-header">
+                        <div class="email-sender">
+                            <div class="avatar">{{ email.from[:1]|upper if email.from else 'U' }}</div>
+                            <div class="sender-info">
+                                <h4>{{ email.from|default('Unknown Sender') }}</h4>
+                                <p class="email-time">{{ email.date|default('No Date') }}</p>
+                            </div>
+                        </div>
+                        <div class="email-badges">
+                            {% if email.spam == 'true' %}
+                            <span class="badge badge-danger">
+                                <i class="fas fa-exclamation-circle"></i> Spam
+                            </span>
+                            {% endif %}
+                            {% if email.urgency == 'high' %}
+                            <span class="badge badge-warning">
+                                <i class="fas fa-bolt"></i> Urgent
+                            </span>
+                            {% elif email.urgency == 'moderate' %}
+                            <span class="badge badge-info">
+                                <i class="fas fa-clock"></i> Moderate
+                            </span>
+                            {% endif %}
+                            {% if email.category %}
+                            <span class="badge badge-category">{{ email.category }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="email-content">
+                        <h3 class="email-subject">{{ email.subject|default('No Subject') }}</h3>
+                        <p class="email-preview">{{ email.body[:200]|default('No content')|striptags }}...</p>
+                    </div>
+                    <div class="email-footer">
+                        {% if email.sentiment %}
+                        <div class="sentiment-indicator sentiment-{{ email.sentiment|lower }}">
+                            <i class="fas fa-smile"></i> {{ email.sentiment }}
+                        </div>
+                        {% endif %}
+                        {% if email.reminder and email.reminder != '' %}
+                        <div class="reminder-indicator">
+                            <i class="fas fa-bell"></i> Reminder set
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </main>
+    </div>
+
+    <!-- Email Detail Modal -->
+    <div id="emailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalSubject">Email Details</h2>
+                <span class="close" onclick="closeModal('emailModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="detail-row">
+                    <strong>From:</strong>
+                    <span id="modalFrom"></span>
+                </div>
+                <div class="detail-row">
+                    <strong>Date:</strong>
+                    <span id="modalDate"></span>
+                </div>
+                <div class="detail-row">
+                    <strong>Category:</strong>
+                    <span id="modalCategory" class="badge"></span>
+                </div>
+                <div class="detail-row">
+                    <strong>Sentiment:</strong>
+                    <span id="modalSentiment"></span>
+                </div>
+                <div class="detail-row">
+                    <strong>Urgency:</strong>
+                    <span id="modalUrgency"></span>
+                </div>
+                <div class="detail-row" id="reminderRow" style="display: none;">
+                    <strong>Reminder:</strong>
+                    <div class="reminder-box">
+                        <p id="modalReminder"></p>
+                        <span id="modalReminderDate"></span>
+                    </div>
+                </div>
+                <div class="detail-row full-width">
+                    <strong>Email Body:</strong>
+                    <div class="email-body-full" id="modalBody"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Send Email Modal -->
+    <div id="sendEmailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Send Email</h2>
+                <span class="close" onclick="closeModal('sendEmailModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="sendEmailForm" onsubmit="sendEmail(event)">
+                    <div class="detail-row full-width">
+                        <strong>To:</strong>
+                        <input type="email" id="emailRecipient" placeholder="recipient@example.com" required style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    </div>
+                    <div class="detail-row full-width">
+                        <strong>Subject:</strong>
+                        <input type="text" id="emailSubject" placeholder="Email subject" required style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    </div>
+                    <div class="detail-row full-width">
+                        <strong>Message:</strong>
+                        <textarea id="emailBody" rows="8" placeholder="Write your message here..." required style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-family: inherit;"></textarea>
+                    </div>
+                    <button type="submit" class="btn-view" style="width: 100%; justify-content: center;">
+                        <i class="fas fa-paper-plane"></i> Send Email
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Email Generation Modal -->
+    <div id="aiEmailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%);">
+                <h2>Generate AI Email</h2>
+                <span class="close" onclick="closeModal('aiEmailModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="aiEmailForm" onsubmit="generateAIEmail(event)">
+                    <div class="detail-row full-width">
+                        <strong>Email Type:</strong>
+                        <select id="emailType" required style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                            <option value="">Select email type...</option>
+                            <option value="professional">Professional/Business</option>
+                            <option value="followup">Follow-up</option>
+                            <option value="thankyou">Thank You</option>
+                            <option value="apology">Apology</option>
+                            <option value="invitation">Invitation</option>
+                            <option value="response">Response</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    <div class="detail-row full-width">
+                        <strong>Email Purpose/Details:</strong>
+                        <textarea id="emailPurpose" rows="6" placeholder="Describe what the email should be about..." required style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-family: inherit;"></textarea>
+                    </div>
+                    <button type="submit" class="btn-view" style="width: 100%; justify-content: center; background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%);">
+                        <i class="fas fa-magic"></i> Generate Email
+                    </button>
+                </form>
+                <div id="aiEmailOutput" style="display: none; margin-top: 20px;">
+                    <div class="detail-row full-width">
+                        <strong>Generated Email:</strong>
+                        <div class="email-body-full" id="generatedEmail"></div>
+                    </div>
+                    <button class="btn-view" onclick="copyToClipboard()" style="width: 100%; justify-content: center; margin-top: 10px;">
+                        <i class="fas fa-copy"></i> Copy to Clipboard
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Store emails data
+        const emailsData = {{ emails|tojson }};
+        
+        // Filter emails by search
+        function filterEmails() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const emailCards = document.querySelectorAll('.email-card');
+            
+            emailCards.forEach(card => {
+                const text = card.textContent.toLowerCase();
+                card.style.display = text.includes(searchTerm) ? 'block' : 'none';
+            });
+        }
+
+        // Filter by category
+        function filterByCategory(category) {
+            const emailCards = document.querySelectorAll('.email-card');
+            const tabs = document.querySelectorAll('.tab-btn');
+            
+            tabs.forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            emailCards.forEach(card => {
+                if (category === 'all') {
+                    card.style.display = 'block';
+                } else {
+                    const cardCategory = card.getAttribute('data-category');
+                    card.style.display = cardCategory === category ? 'block' : 'none';
+                }
+            });
+        }
+
+        // Show email details
+        function showEmailDetails(index) {
+            const email = emailsData[index];
+            const modal = document.getElementById('emailModal');
+            
+            document.getElementById('modalSubject').textContent = email.subject || 'No Subject';
+            document.getElementById('modalFrom').textContent = email.from || 'Unknown';
+            document.getElementById('modalDate').textContent = email.date || 'No Date';
+            document.getElementById('modalCategory').textContent = email.category || 'Other';
+            document.getElementById('modalSentiment').textContent = email.sentiment || 'N/A';
+            document.getElementById('modalUrgency').textContent = email.urgency || 'N/A';
+            document.getElementById('modalBody').textContent = email.body || 'No content';
+            
+            const reminderRow = document.getElementById('reminderRow');
+            if (email.reminder && email.reminder !== '') {
+                reminderRow.style.display = 'flex';
+                document.getElementById('modalReminder').textContent = email.reminder;
+                document.getElementById('modalReminderDate').textContent = email.date || '';
+            } else {
+                reminderRow.style.display = 'none';
+            }
+            
+            modal.style.display = 'block';
+        }
+
+        // Close modal
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        function openSendEmailModal() {
+            document.getElementById('sendEmailModal').style.display = 'block';
+        }
+
+        function openAIEmailModal() {
+            document.getElementById('aiEmailModal').style.display = 'block';
+            document.getElementById('aiEmailOutput').style.display = 'none';
+        }
+
+        async function sendEmail(event) {
+            event.preventDefault();
+            
+            const recipient = document.getElementById('emailRecipient').value;
+            const subject = document.getElementById('emailSubject').value;
+            const body = document.getElementById('emailBody').value;
+            
+            try {
+                const response = await fetch('/api/send_email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ recipient, subject, body })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Email logged successfully!');
+                    closeModal('sendEmailModal');
+                    document.getElementById('sendEmailForm').reset();
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to send email');
+            }
+        }
+
+        async function generateAIEmail(event) {
+            event.preventDefault();
+            
+            const emailType = document.getElementById('emailType').value;
+            const purpose = document.getElementById('emailPurpose').value;
+            
+            try {
+                const response = await fetch('/api/generate_ai_email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email_type: emailType, purpose })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('generatedEmail').textContent = result.email;
+                    document.getElementById('aiEmailOutput').style.display = 'block';
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to generate email');
+            }
+        }
+
+        async function generateTodoList() {
+            if (!confirm('Generate AI-enhanced to-do list from today\'s reminders?')) return;
+            
+            try {
+                const response = await fetch('/api/generate_todo', {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('To-do list generated successfully!\nFile: ' + result.filename);
+                    window.open('/download/' + result.filename, '_blank');
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to generate to-do list');
+            }
+        }
+
+        function copyToClipboard() {
+            const text = document.getElementById('generatedEmail').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Email copied to clipboard!');
+            });
+        }
+
+        // Refresh emails
+        async function refreshEmails() {
+            const btn = document.querySelector('.refresh-btn');
+            btn.classList.add('spinning');
+            
+            try {
+                const response = await fetch('/api/refresh', { method: 'POST' });
+                if (response.ok) {
+                    window.location.reload();
+                }
+            } catch (error) {
+                console.error('Error refreshing:', error);
+            }
+            
+            setTimeout(() => btn.classList.remove('spinning'), 1000);
+        }
+
+        // Update last update time
+        function updateLastUpdateTime() {
+            fetch('/api/stats')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('lastUpdate').textContent = data.last_update || '--:--';
+                })
+                .catch(error => console.error('Error fetching stats:', error));
+        }
+
+        // Auto-refresh stats every 30 seconds
+        setInterval(updateLastUpdateTime, 30000);
+        updateLastUpdateTime();
+
+        // Close modal on outside click
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

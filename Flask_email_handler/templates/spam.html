@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spam Filter</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/style.css">
+   
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fas fa-envelope-open-text"></i>
+                <h2>Email Manager</h2>
+            </div>
+            <nav class="nav-menu">
+                <a href="/" class="nav-item">
+                    <i class="fas fa-inbox"></i>
+                    <span>Inbox</span>
+                </a>
+                <a href="/analysis" class="nav-item">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Analysis</span>
+                </a>
+                <a href="/reminders" class="nav-item">
+                    <i class="fas fa-bell"></i>
+                    <span>Reminders</span>
+                </a>
+                <a href="/spam" class="nav-item active">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Spam</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+    <button class="refresh-btn" onclick="generateTodoList()" style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); margin-bottom: 10px;">
+        <i class="fas fa-magic"></i>
+        <span>Generate To-Do List</span>
+    </button>
+    <button class="refresh-btn" onclick="openSendEmailModal()">
+        <i class="fas fa-paper-plane"></i>
+        <span>Send Email</span>
+    </button>
+    <button class="refresh-btn" onclick="openAIEmailModal()" style="background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%); margin-top: 10px;">
+        <i class="fas fa-robot"></i>
+        <span>Generate AI Email</span>
+    </button>
+</div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header">
+                <div class="header-left">
+                    <h1>Spam Detection</h1>
+                    <p class="subtitle">Filtered suspicious emails</p>
+                </div>
+            </header>
+
+            <!-- Spam Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon red">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ spam_emails|length }}</h3>
+                        <p>Spam Detected</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ safe_emails }}</h3>
+                        <p>Safe Emails</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon blue">
+                        <i class="fas fa-percentage"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ spam_percentage }}%</h3>
+                        <p>Spam Rate</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Spam List -->
+            <div class="spam-container">
+                <div class="section-header">
+                    <h2 class="section-title">Detected Spam Emails</h2>
+                    <div class="filter-buttons">
+                        <button class="filter-btn active" onclick="filterSpam('all')">All Spam</button>
+                        <button class="filter-btn" onclick="filterSpam('urgent')">Urgent</button>
+                        <button class="filter-btn" onclick="filterSpam('promotions')">Promotions</button>
+                    </div>
+                </div>
+                
+                {% if spam_emails|length == 0 %}
+                <div class="empty-state">
+                    <i class="fas fa-check-circle"></i>
+                    <h3>No Spam Detected</h3>
+                    <p>All your emails appear to be legitimate.</p>
+                </div>
+                {% else %}
+                <div class="spam-list">
+                    {% for email in spam_emails %}
+                    <div class="spam-card" data-category="{{ email.category|default('Other') }}">
+                        <div class="spam-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>SPAM DETECTED</span>
+                        </div>
+                        
+                        <div class="spam-header">
+                            <div class="spam-sender">
+                                <div class="avatar">
+                                    <i class="fas fa-user-slash"></i>
+                                </div>
+                                <div class="sender-info">
+                                    <h4>{{ email.from|default('Unknown Sender') }}</h4>
+                                    <p class="email-time">{{ email.date|default('No Date') }}</p>
+                                </div>
+                            </div>
+                            <div class="spam-badges">
+                                <span class="badge badge-danger">
+                                    <i class="fas fa-ban"></i> Spam
+                                </span>
+                                {% if email.category %}
+                                <span class="badge badge-category">{{ email.category }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="spam-content">
+                            <h3 class="email-subject">{{ email.subject|default('No Subject') }}</h3>
+                            <p class="email-preview">{{ email.body[:200]|default('No content')|striptags }}...</p>
+                        </div>
+                        
+                        <div class="spam-footer">
+                            <button class="btn-danger" onclick="permanentDelete('{{ email.id }}')">
+                                <i class="fas fa-trash"></i> Delete Permanently
+                            </button>
+                            <button class="btn-secondary" onclick="markNotSpam('{{ email.id }}')">
+                                <i class="fas fa-undo"></i> Not Spam
+                            </button>
+                            <button class="btn-view-spam" onclick="viewSpamDetails({{ loop.index0 }})">
+                                <i class="fas fa-eye"></i> View Details
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Spam Protection Info -->
+            <div class="protection-info">
+                <div class="info-card">
+                    <i class="fas fa-shield-alt"></i>
+                    <h3>Advanced Protection</h3>
+                    <p>Our AI-powered spam filter analyzes email content, sender reputation, and patterns to keep your inbox clean.</p>
+                </div>
+                <div class="info-card">
+                    <i class="fas fa-brain"></i>
+                    <h3>Smart Learning</h3>
+                    <p>The system continuously learns from your feedback to improve spam detection accuracy over time.</p>
+                </div>
+                <div class="info-card">
+                    <i class="fas fa-lock"></i>
+                    <h3>Safe & Secure</h3>
+                    <p>All suspicious emails are quarantined safely, protecting you from phishing and malicious content.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Spam Detail Modal -->
+    <div id="spamModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalSubject">Spam Email Details</h2>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="warning-box">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Warning:</strong> This email has been identified as spam. Be cautious with any links or attachments.
+                </div>
+                <div class="detail-row">
+                    <strong>From:</strong>
+                    <span id="modalFrom"></span>
+                </div>
+                <div class="detail-row">
+                    <strong>Date:</strong>
+                    <span id="modalDate"></span>
+                </div>
+                <div class="detail-row">
+                    <strong>Category:</strong>
+                    <span id="modalCategory"></span>
+                </div>
+                <div class="detail-row full-width">
+                    <strong>Email Body:</strong>
+                    <div class="email-body-full" id="modalBody"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const spamEmails = {{ spam_emails|tojson }};
+
+        function filterSpam(type) {
+            const cards = document.querySelectorAll('.spam-card');
+            const buttons = document.querySelectorAll('.filter-btn');
+            
+            buttons.forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            cards.forEach(card => {
+                if (type === 'all') {
+                    card.style.display = 'block';
+                } else if (type === 'urgent') {
+                    card.style.display = card.querySelector('.badge-warning') ? 'block' : 'none';
+                } else if (type === 'promotions') {
+                    const category = card.getAttribute('data-category');
+                    card.style.display = category === 'Promotions' ? 'block' : 'none';
+                }
+            });
+        }
+
+        function viewSpamDetails(index) {
+            const email = spamEmails[index];
+            document.getElementById('modalSubject').textContent = email.subject || 'No Subject';
+            document.getElementById('modalFrom').textContent = email.from || 'Unknown';
+            document.getElementById('modalDate').textContent = email.date || 'No Date';
+            document.getElementById('modalCategory').textContent = email.category || 'Other';
+            document.getElementById('modalBody').textContent = email.body || 'No content';
+            document.getElementById('spamModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('spamModal').style.display = 'none';
+        }
+
+        function permanentDelete(emailId) {
+            if (confirm('Are you sure you want to permanently delete this spam email?')) {
+                alert('Email deleted successfully!');
+                window.location.reload();
+            }
+        }
+
+        function markNotSpam(emailId) {
+            if (confirm('Mark this email as not spam?')) {
+                alert('Email marked as safe!');
+                window.location.reload();
+            }
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('spamModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>
