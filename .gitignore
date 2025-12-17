@@ -1,7 +1,0 @@
-.env
-token.json
-credentials.json
-email.xlsx
-email_check.xlsx
-__pycache__/
-*.pyc
