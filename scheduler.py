@@ -47,7 +47,7 @@ def run_pipeline():
         fetch_gmail()
         
         # Read and process emails
-        df = pd.read_excel("email.xlsx")
+        df = pd.read_excel("email.xlsx", engine="openpyxl")
         df = run_function_call(df)
         
         # Save processed emails
@@ -75,7 +75,7 @@ def index():
     """Main dashboard page - Inbox view"""
     try:
         if os.path.exists("email.xlsx"):
-            df = pd.read_excel("email.xlsx")
+            df = pd.read_excel("email.xlsx", engine="openpyxl")
             emails = df.to_dict('records')
         else:
             emails = []
@@ -91,7 +91,7 @@ def analysis():
     """Analysis page with charts and statistics"""
     try:
         if os.path.exists("email.xlsx"):
-            df = pd.read_excel("email.xlsx")
+            df = pd.read_excel("email.xlsx", engine="openpyxl")
             
             # Calculate sentiment counts
             positive_count = len(df[df.get('sentiment', '').str.lower().str.contains('positive', na=False)])
@@ -155,7 +155,7 @@ def reminders():
     """Reminders page showing all emails with reminders"""
     try:
         if os.path.exists("email.xlsx"):
-            df = pd.read_excel("email.xlsx")
+            df = pd.read_excel("email.xlsx", engine="openpyxl")
             
             # Filter emails that have reminders
             reminder_df = df[df['reminder'].notna() & (df['reminder'] != '')]
@@ -189,7 +189,7 @@ def spam():
     """Spam page showing all detected spam emails"""
     try:
         if os.path.exists("email.xlsx"):
-            df = pd.read_excel("email.xlsx")
+            df = pd.read_excel("email.xlsx", engine="openpyxl")
             
             # Filter spam emails
             spam_df = df[df['spam'].astype(str).str.lower() == 'true']
@@ -233,7 +233,7 @@ def get_stats():
     """API endpoint to get current statistics"""
     try:
         if os.path.exists("email.xlsx"):
-            df = pd.read_excel("email.xlsx")
+            df = pd.read_excel("email.xlsx", engine="openpyxl")
             total = len(df)
             processed = len(df[df['spam'].notna()])
         else:
@@ -254,7 +254,7 @@ def get_emails():
     """API endpoint to get all emails as JSON"""
     try:
         if os.path.exists("email.xlsx"):
-            df = pd.read_excel("email.xlsx")
+            df = pd.read_excel("email.xlsx", engine="openpyxl")
             emails = df.to_dict('records')
             return jsonify({'emails': emails})
         else:
@@ -293,7 +293,7 @@ def send_email():
         }
         
         if os.path.exists(log_file):
-            df = pd.read_excel(log_file)
+            df = pd.read_excel(log_file, engine="openpyxl")
             df = pd.concat([df, pd.DataFrame([email_data])], ignore_index=True)
         else:
             df = pd.DataFrame([email_data])
@@ -341,7 +341,7 @@ Please write a professional, well-structured email. Include appropriate greeting
         }
         
         if os.path.exists(log_file):
-            df = pd.read_excel(log_file)
+            df = pd.read_excel(log_file, engine="openpyxl")
             df = pd.concat([df, pd.DataFrame([log_data])], ignore_index=True)
         else:
             df = pd.DataFrame([log_data])
@@ -366,7 +366,7 @@ def generate_todo():
         if not os.path.exists("email.xlsx"):
             return jsonify({'success': False, 'message': 'No emails found'}), 404
         
-        df = pd.read_excel("email.xlsx")
+        df = pd.read_excel("email.xlsx", engine="openpyxl")
         
         # Filter reminders
         reminder_df = df[df['reminder'].notna() & (df['reminder'] != '')]
@@ -447,7 +447,7 @@ def mark_complete():
         if not os.path.exists("email.xlsx"):
             return jsonify({'success': False, 'message': 'Email file not found'}), 404
         
-        df = pd.read_excel("email.xlsx")
+        df = pd.read_excel("email.xlsx", engine="openpyxl")
         
         # Add completed column if it doesn't exist
         if 'completed' not in df.columns:

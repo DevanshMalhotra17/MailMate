@@ -1,7 +1,7 @@
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import pandas as pd
 
-df = pd.read_excel("email.xlsx")
+df = pd.read_excel("email.xlsx", engine="openpyxl")
 
 analyzer = SentimentIntensityAnalyzer()
 

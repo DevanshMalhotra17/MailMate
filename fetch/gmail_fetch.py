@@ -71,7 +71,7 @@ def download_attachments(service, msg):
                 print('Saved attachment', filename)
 def load_existingEmails():
     if os.path.exists(FILEPATH):
-        return pd.read_excel(FILEPATH)
+        return pd.read_excel(FILEPATH, engine="openpyxl")
     else:
         return pd.DataFrame(columns=["id", "date", "from", "subject", "body"])
 

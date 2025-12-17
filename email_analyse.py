@@ -28,7 +28,7 @@ def classify_email(subject, body):
     return False
 
 # Load data
-df = pd.read_excel("email.xlsx")
+df = pd.read_excel("email.xlsx", engine="openpyxl")
 
 spam_results = []
 for _, row in df.iterrows():
