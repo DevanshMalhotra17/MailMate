@@ -6,7 +6,6 @@
     <title>Email Manager Dashboard</title>
     <link rel="stylesheet" href="/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!--Trial Commit Message-->
 </head>
 <body>
     <div class="container">
@@ -50,6 +49,10 @@
                 <button class="refresh-btn" onclick="refreshEmails()" style="margin-top: 10px;">
                     <i class="fas fa-sync-alt"></i>
                     <span>Refresh Emails</span>
+                </button>
+                <button class="refresh-btn" onclick="window.location.href='/logout'" style="background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%); margin-top: 10px;">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
                 </button>
                 <p class="last-update">Last update: <span id="lastUpdate">--:--</span></p>
             </div>

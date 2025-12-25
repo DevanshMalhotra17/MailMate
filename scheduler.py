@@ -2,28 +2,66 @@ import time
 import threading
 import os
 from datetime import datetime, timedelta
-from flask import Flask, render_template, jsonify, request, redirect, url_for, send_from_directory
+from flask import Flask, render_template, jsonify, request, redirect, url_for, send_from_directory, session
 import pandas as pd
 from fetch.gmail_fetch import main as fetch_gmail
 from function_call import run_function_call
 from collections import Counter
 import google.generativeai as genai
-from flask_mail import Mail, Message
+from functools import wraps
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__, template_folder="templates")
+app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-change-this-in-production')
 base_dir = os.path.dirname(os.path.abspath(__file__))
-app.config["MAIL_SERVER"]="smtp.gmail.com"
-app.config["MAIL_PORT"]=587
-app.config["MAIL_USE_TLS"]=True
-app.config["MAIL_USE_SSL"]=False
-app.config["MAIL_USERNAME"]="devansh.malhotra2027@gmail.com"
-app.config["MAIL_PASSWORD"]="oupe afur cgeh xrio"
-app.config["MAIL_DEFAULT_SENDER"]=("MyApp", "devansh.malhotra2027@gmail.com")
-mail=Mail(app)
 
-# Configure Gemini API
-API_KEY = "AIzaSyCzv_m9tL7SfqkekHaWQSl9SHRc8cM0bMM"
+# Configure Gemini API from environment variable
+API_KEY = os.getenv("API_KEY")
+if not API_KEY:
+    raise ValueError("API_KEY not found in .env file!")
 genai.configure(api_key=API_KEY)
+
+# Simple user database (in production, use a real database!)
+USERS = {
+    'admin': 'admin123',  # username: password
+    'user': 'password123'
+}
+
+# File to store users
+USERS_FILE = 'users.json'
+
+# Load users from file if it exists
+# File to store users
+USERS_FILE = 'users.json'
+
+# Load users from file if it exists
+def load_users():
+    global USERS
+    if os.path.exists(USERS_FILE):
+        import json
+        with open(USERS_FILE, 'r') as f:
+            USERS = json.load(f)
+
+# Save users to file
+def save_users():
+    import json
+    with open(USERS_FILE, 'w') as f:
+        json.dump(USERS, f, indent=4)
+
+# Load users on startup
+load_users()
+
+# Login required decorator
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'username' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 # Global state
 pipeline_state = {
@@ -33,9 +71,74 @@ pipeline_state = {
     'processed_today': 0
 }
 
+# Login routes
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """Login page"""
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        if username and password and username in USERS and USERS[username] == password:
+            session['username'] = username
+            return redirect(url_for('index'))
+        else:
+            return render_template('login.html', error='Invalid username or password')
+    
+    # If already logged in, redirect to index
+    if 'username' in session:
+        return redirect(url_for('index'))
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    """Logout user"""
+    session.pop('username', None)
+    return redirect(url_for('login'))
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    """Signup page"""
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        
+        # Validation
+        if not username or not password:
+            return render_template('signup.html', error='Username and password are required')
+        
+        if len(username) < 3:
+            return render_template('signup.html', error='Username must be at least 3 characters')
+        
+        if len(password) < 6:
+            return render_template('signup.html', error='Password must be at least 6 characters')
+        
+        if password != confirm_password:
+            return render_template('signup.html', error='Passwords do not match')
+        
+        if username in USERS:
+            return render_template('signup.html', error='Username already exists')
+        
+        # Create new user
+        USERS[username] = password
+        save_users()
+        
+        # Auto login after signup
+        session['username'] = username
+        return redirect(url_for('index'))
+    
+    # If already logged in, redirect to index
+    if 'username' in session:
+        return redirect(url_for('index'))
+    
+    return render_template('signup.html')
+
 # Serve CSS from templates folder
 @app.route('/style.css')
 def serve_css():
+    """Serve CSS file from templates folder"""
     return send_from_directory('templates', 'style.css', mimetype='text/css')
 
 def run_pipeline():
@@ -47,7 +150,7 @@ def run_pipeline():
         fetch_gmail()
         
         # Read and process emails
-        df = pd.read_excel("email.xlsx", engine="openpyxl")
+        df = pd.read_excel("email.xlsx")
         df = run_function_call(df)
         
         # Save processed emails
@@ -56,7 +159,7 @@ def run_pipeline():
         # Update state
         pipeline_state['last_update'] = datetime.now()
         pipeline_state['total_emails'] = len(df)
-        pipeline_state['processed_today'] = len(df[df.get('spam', '').notna()])
+        pipeline_state['processed_today'] = len(df[df['spam'].notna()])
         
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Pipeline completed. Processed {len(df)} emails.")
         
@@ -71,11 +174,12 @@ def pipeline_loop():
         time.sleep(600)  # 10 minutes
 
 @app.route('/')
+@login_required
 def index():
     """Main dashboard page - Inbox view"""
     try:
         if os.path.exists("email.xlsx"):
-            df = pd.read_excel("email.xlsx", engine="openpyxl")
+            df = pd.read_excel("email.xlsx")
             emails = df.to_dict('records')
         else:
             emails = []
@@ -87,15 +191,16 @@ def index():
         return render_template('index.html', emails=[])
 
 @app.route('/analysis')
+@login_required
 def analysis():
     """Analysis page with charts and statistics"""
     try:
         if os.path.exists("email.xlsx"):
-            df = pd.read_excel("email.xlsx", engine="openpyxl")
+            df = pd.read_excel("email.xlsx")
             
             # Calculate sentiment counts
-            positive_count = len(df[df.get('sentiment', '').str.lower().str.contains('positive', na=False)])
-            negative_count = len(df[df.get('sentiment', '').str.lower().str.contains('negative', na=False)])
+            positive_count = len(df[df['sentiment'].astype(str).str.lower().str.contains('positive', na=False)])
+            negative_count = len(df[df['sentiment'].astype(str).str.lower().str.contains('negative', na=False)])
             neutral_count = len(df) - positive_count - negative_count
             
             # Get category distribution
@@ -151,11 +256,12 @@ def analysis():
                              timeline_data=[])
 
 @app.route('/reminders')
+@login_required
 def reminders():
     """Reminders page showing all emails with reminders"""
     try:
         if os.path.exists("email.xlsx"):
-            df = pd.read_excel("email.xlsx", engine="openpyxl")
+            df = pd.read_excel("email.xlsx")
             
             # Filter emails that have reminders
             reminder_df = df[df['reminder'].notna() & (df['reminder'] != '')]
@@ -185,11 +291,12 @@ def reminders():
                              upcoming_reminders=0)
 
 @app.route('/spam')
+@login_required
 def spam():
     """Spam page showing all detected spam emails"""
     try:
         if os.path.exists("email.xlsx"):
-            df = pd.read_excel("email.xlsx", engine="openpyxl")
+            df = pd.read_excel("email.xlsx")
             
             # Filter spam emails
             spam_df = df[df['spam'].astype(str).str.lower() == 'true']
@@ -233,7 +340,7 @@ def get_stats():
     """API endpoint to get current statistics"""
     try:
         if os.path.exists("email.xlsx"):
-            df = pd.read_excel("email.xlsx", engine="openpyxl")
+            df = pd.read_excel("email.xlsx")
             total = len(df)
             processed = len(df[df['spam'].notna()])
         else:
@@ -254,7 +361,7 @@ def get_emails():
     """API endpoint to get all emails as JSON"""
     try:
         if os.path.exists("email.xlsx"):
-            df = pd.read_excel("email.xlsx", engine="openpyxl")
+            df = pd.read_excel("email.xlsx")
             emails = df.to_dict('records')
             return jsonify({'emails': emails})
         else:
@@ -272,15 +379,7 @@ def send_email():
         recipient = data.get('recipient')
         subject = data.get('subject')
         body = data.get('body')
-        print(recipient)
-        msg=Message(
-            subject=subject,
-            recipients=[recipient],
-            body=body
-        )
-
-        mail.send(msg)
-
+        
         # Log to file
         log_file = "sent_emails.xlsx"
         
@@ -293,7 +392,7 @@ def send_email():
         }
         
         if os.path.exists(log_file):
-            df = pd.read_excel(log_file, engine="openpyxl")
+            df = pd.read_excel(log_file)
             df = pd.concat([df, pd.DataFrame([email_data])], ignore_index=True)
         else:
             df = pd.DataFrame([email_data])
@@ -325,7 +424,7 @@ def generate_ai_email():
 
 Please write a professional, well-structured email. Include appropriate greeting, body, and closing."""
         
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        model = genai.GenerativeModel("gemini-2.0-flash-exp")
         response = model.generate_content(prompt)
         
         generated_email = response.text
@@ -341,7 +440,7 @@ Please write a professional, well-structured email. Include appropriate greeting
         }
         
         if os.path.exists(log_file):
-            df = pd.read_excel(log_file, engine="openpyxl")
+            df = pd.read_excel(log_file)
             df = pd.concat([df, pd.DataFrame([log_data])], ignore_index=True)
         else:
             df = pd.DataFrame([log_data])
@@ -366,7 +465,7 @@ def generate_todo():
         if not os.path.exists("email.xlsx"):
             return jsonify({'success': False, 'message': 'No emails found'}), 404
         
-        df = pd.read_excel("email.xlsx", engine="openpyxl")
+        df = pd.read_excel("email.xlsx")
         
         # Filter reminders
         reminder_df = df[df['reminder'].notna() & (df['reminder'] != '')]
@@ -399,7 +498,7 @@ def generate_todo():
 
 Please organize them by priority, add estimated time for each task, and suggest the best order to complete them. Format as a clear, actionable to-do list."""
         
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        model = genai.GenerativeModel("gemini-2.0-flash-exp")
         response = model.generate_content(prompt)
         
         ai_todo_list = response.text
@@ -447,7 +546,7 @@ def mark_complete():
         if not os.path.exists("email.xlsx"):
             return jsonify({'success': False, 'message': 'Email file not found'}), 404
         
-        df = pd.read_excel("email.xlsx", engine="openpyxl")
+        df = pd.read_excel("email.xlsx")
         
         # Add completed column if it doesn't exist
         if 'completed' not in df.columns:

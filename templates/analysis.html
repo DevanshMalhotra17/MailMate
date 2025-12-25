@@ -146,9 +146,9 @@
         new Chart(categoryCtx, {
             type: 'doughnut',
             data: {
-                labels: {{ category_labels|tojson }},
+                labels: {{ category_labels|tojson|safe }},
                 datasets: [{
-                    data: {{ category_data|tojson }},
+                    data: {{ category_data|tojson|safe }},
                     backgroundColor: [
                         '#667eea', '#48bb78', '#ed8936', '#f56565',
                         '#4299e1', '#9f7aea', '#38b2ac', '#ed64a6'
@@ -194,9 +194,9 @@
         new Chart(urgencyCtx, {
             type: 'pie',
             data: {
-                labels: {{ urgency_labels|tojson }},
+                labels: {{ urgency_labels|tojson|safe }},
                 datasets: [{
-                    data: {{ urgency_data|tojson }},
+                    data: {{ urgency_data|tojson|safe }},
                     backgroundColor: ['#f56565', '#ed8936', '#48bb78']
                 }]
             },
