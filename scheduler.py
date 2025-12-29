@@ -10,6 +10,8 @@ from collections import Counter
 import google.generativeai as genai
 from functools import wraps
 from dotenv import load_dotenv
+from flask_mail import Mail, Message
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -17,6 +19,15 @@ load_dotenv()
 app = Flask(__name__, template_folder="templates")
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-change-this-in-production')
 base_dir = os.path.dirname(os.path.abspath(__file__))
+
+app.config["MAIL_SERVER"]="smtp.gmail.com"
+app.config["MAIL_PORT"]=587
+app.config["MAIL_USE_TLS"]=True
+app.config["MAIL_USE_SSL"]=False
+app.config["MAIL_USERNAME"]="devansh.malhotra2027@gmail.com"
+app.config["MAIL_PASSWORD"]="oupe afur cgeh xrio"
+app.config["MAIL_DEFAULT_SENDER"]=("MyApp", "devansh.malhotra2027@gmail.com")
+mail=Mail(app)
 
 # Configure Gemini API from environment variable
 API_KEY = os.getenv("API_KEY")
@@ -369,7 +380,7 @@ def get_emails():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/send_email', methods=['POST'])
+@app.route('/api/send_email', methods=['POST', 'GET'])
 def send_email():
     """Log email sending data"""
     try:
@@ -379,7 +390,15 @@ def send_email():
         recipient = data.get('recipient')
         subject = data.get('subject')
         body = data.get('body')
-        
+        print(recipient)
+        msg=Message(
+            subject=subject,
+            recipients=[recipient],
+            body=body
+        )
+
+        mail.send(msg)
+
         # Log to file
         log_file = "sent_emails.xlsx"
         
@@ -392,7 +411,7 @@ def send_email():
         }
         
         if os.path.exists(log_file):
-            df = pd.read_excel(log_file)
+            df = pd.read_excel(log_file, engine="openpyxl")
             df = pd.concat([df, pd.DataFrame([email_data])], ignore_index=True)
         else:
             df = pd.DataFrame([email_data])
@@ -424,7 +443,7 @@ def generate_ai_email():
 
 Please write a professional, well-structured email. Include appropriate greeting, body, and closing."""
         
-        model = genai.GenerativeModel("gemini-2.0-flash-exp")
+        model = genai.GenerativeModel("gemini-2.5")
         response = model.generate_content(prompt)
         
         generated_email = response.text
@@ -498,7 +517,7 @@ def generate_todo():
 
 Please organize them by priority, add estimated time for each task, and suggest the best order to complete them. Format as a clear, actionable to-do list."""
         
-        model = genai.GenerativeModel("gemini-2.0-flash-exp")
+        model = genai.GenerativeModel("gemini-2.5")
         response = model.generate_content(prompt)
         
         ai_todo_list = response.text
