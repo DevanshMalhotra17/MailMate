@@ -161,11 +161,11 @@ def run_pipeline():
         fetch_gmail()
         
         # Read and process emails
-        df = pd.read_excel("email.xlsx")
+        df = pd.read_excel("fetch/email.xlsx")
         df = run_function_call(df)
         
         # Save processed emails
-        df.to_excel("email.xlsx", index=False)
+        df.to_excel("fetch/email.xlsx", index=False)
         
         # Update state
         pipeline_state['last_update'] = datetime.now()
@@ -189,8 +189,8 @@ def pipeline_loop():
 def index():
     """Main dashboard page - Inbox view"""
     try:
-        if os.path.exists("email.xlsx"):
-            df = pd.read_excel("email.xlsx")
+        if os.path.exists("fetch/email.xlsx"):
+            df = pd.read_excel("fetch/email.xlsx")
             emails = df.to_dict('records')
         else:
             emails = []
@@ -206,8 +206,8 @@ def index():
 def analysis():
     """Analysis page with charts and statistics"""
     try:
-        if os.path.exists("email.xlsx"):
-            df = pd.read_excel("email.xlsx")
+        if os.path.exists("fetch/email.xlsx"):
+            df = pd.read_excel("fetch/email.xlsx")
             
             # Calculate sentiment counts
             positive_count = len(df[df['sentiment'].astype(str).str.lower().str.contains('positive', na=False)])
@@ -271,8 +271,8 @@ def analysis():
 def reminders():
     """Reminders page showing all emails with reminders"""
     try:
-        if os.path.exists("email.xlsx"):
-            df = pd.read_excel("email.xlsx")
+        if os.path.exists("fetch/email.xlsx"):
+            df = pd.read_excel("fetch/email.xlsx")
             
             # Filter emails that have reminders
             reminder_df = df[df['reminder'].notna() & (df['reminder'] != '')]
@@ -306,8 +306,8 @@ def reminders():
 def spam():
     """Spam page showing all detected spam emails"""
     try:
-        if os.path.exists("email.xlsx"):
-            df = pd.read_excel("email.xlsx")
+        if os.path.exists("fetch/email.xlsx"):
+            df = pd.read_excel("fetch/email.xlsx")
             
             # Filter spam emails
             spam_df = df[df['spam'].astype(str).str.lower() == 'true']
@@ -350,8 +350,8 @@ def refresh_emails():
 def get_stats():
     """API endpoint to get current statistics"""
     try:
-        if os.path.exists("email.xlsx"):
-            df = pd.read_excel("email.xlsx")
+        if os.path.exists("fetch/email.xlsx"):
+            df = pd.read_excel("fetch/email.xlsx")
             total = len(df)
             processed = len(df[df['spam'].notna()])
         else:
@@ -371,8 +371,8 @@ def get_stats():
 def get_emails():
     """API endpoint to get all emails as JSON"""
     try:
-        if os.path.exists("email.xlsx"):
-            df = pd.read_excel("email.xlsx")
+        if os.path.exists("fetch/email.xlsx"):
+            df = pd.read_excel("fetch/email.xlsx")
             emails = df.to_dict('records')
             return jsonify({'emails': emails})
         else:
@@ -481,10 +481,10 @@ Please write a professional, well-structured email. Include appropriate greeting
 def generate_todo():
     """Generate AI-enhanced to-do list from today's reminders"""
     try:
-        if not os.path.exists("email.xlsx"):
+        if not os.path.exists("fetch/email.xlsx"):
             return jsonify({'success': False, 'message': 'No emails found'}), 404
         
-        df = pd.read_excel("email.xlsx")
+        df = pd.read_excel("fetch/email.xlsx")
         
         # Filter reminders
         reminder_df = df[df['reminder'].notna() & (df['reminder'] != '')]
@@ -562,10 +562,10 @@ def mark_complete():
             return jsonify({'success': False, 'message': 'Invalid request data'}), 400
         email_id = data.get('email_id')
         
-        if not os.path.exists("email.xlsx"):
+        if not os.path.exists("fetch/email.xlsx"):
             return jsonify({'success': False, 'message': 'Email file not found'}), 404
         
-        df = pd.read_excel("email.xlsx")
+        df = pd.read_excel("fetch/email.xlsx")
         
         # Add completed column if it doesn't exist
         if 'completed' not in df.columns:
@@ -575,7 +575,7 @@ def mark_complete():
         df.loc[df['id'] == email_id, 'completed'] = True
         df.loc[df['id'] == email_id, 'completed_date'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
-        df.to_excel("email.xlsx", index=False)
+        df.to_excel("fetch/email.xlsx", index=False)
         
         print(f"[REMINDER COMPLETED] ID: {email_id}")
         
