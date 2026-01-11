@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="/style.css">
 </head>
+
 <body>
     <div class="container">
         <!-- Sidebar -->
@@ -35,19 +37,31 @@
                 </a>
             </nav>
             <div class="sidebar-footer">
-    <button class="refresh-btn" onclick="generateTodoList()" style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); margin-bottom: 10px;">
-        <i class="fas fa-magic"></i>
-        <span>Generate To-Do List</span>
-    </button>
-    <button class="refresh-btn" onclick="openSendEmailModal()">
-        <i class="fas fa-paper-plane"></i>
-        <span>Send Email</span>
-    </button>
-    <button class="refresh-btn" onclick="openAIEmailModal()" style="background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%); margin-top: 10px;">
-        <i class="fas fa-robot"></i>
-        <span>Generate AI Email</span>
-    </button>
-</div>
+                <button class="refresh-btn" onclick="generateTodoList()"
+                    style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); margin-bottom: 10px;">
+                    <i class="fas fa-magic"></i>
+                    <span>Generate To-Do List</span>
+                </button>
+                <button class="refresh-btn" onclick="openSendEmailModal()">
+                    <i class="fas fa-paper-plane"></i>
+                    <span>Send Email</span>
+                </button>
+                <button class="refresh-btn" onclick="openAIEmailModal()"
+                    style="background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%); margin-top: 10px;">
+                    <i class="fas fa-robot"></i>
+                    <span>Generate AI Email</span>
+                </button>
+                <button class="refresh-btn" onclick="refreshEmails()" style="margin-top: 10px;">
+                    <i class="fas fa-sync-alt"></i>
+                    <span>Refresh Emails</span>
+                </button>
+                <button class="refresh-btn" onclick="window.location.href='/logout'"
+                    style="background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%); margin-top: 10px;">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </button>
+                <p class="last-update">Last update: <span id="lastUpdate">--:--</span></p>
+            </div>
         </aside>
 
         <!-- Main Content -->
@@ -140,30 +154,120 @@
         </main>
     </div>
 
+    <!-- Modals -->
+    <!-- Send Email Modal -->
+    <div id="sendEmailModal" class="modal"
+        style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5);">
+        <div class="modal-content"
+            style="background: white; margin: 10% auto; padding: 30px; border-radius: 15px; width: 50%; max-width: 600px; position: relative;">
+            <span class="close-btn" onclick="closeModal('sendEmailModal')"
+                style="position: absolute; right: 20px; top: 20px; font-size: 24px; cursor: pointer;">&times;</span>
+            <h2>Send New Email</h2>
+            <form id="sendEmailForm" onsubmit="sendEmail(event)">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px;">Recipient Email:</label>
+                    <input type="email" id="emailRecipient" required
+                        style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px;">Subject:</label>
+                    <input type="text" id="emailSubject" required
+                        style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px;">Message Body:</label>
+                    <textarea id="emailBody" rows="8" required
+                        style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;"></textarea>
+                </div>
+                <button type="submit" class="btn-primary"
+                    style="width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                    <i class="fas fa-paper-plane"></i> Send Email
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- AI Email Generation Modal -->
+    <div id="aiEmailModal" class="modal"
+        style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5);">
+        <div class="modal-content"
+            style="background: white; margin: 10% auto; padding: 30px; border-radius: 15px; width: 50%; max-width: 600px; position: relative;">
+            <span class="close-btn" onclick="closeModal('aiEmailModal')"
+                style="position: absolute; right: 20px; top: 20px; font-size: 24px; cursor: pointer;">&times;</span>
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+                <div
+                    style="width: 50px; height: 50px; background: #9f7aea; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px;">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div>
+                    <h2 style="margin: 0;">AI Email Generator</h2>
+                    <p style="margin: 5px 0 0; color: #718096; font-size: 14px;">Powered by Gemini</p>
+                </div>
+            </div>
+
+            <form id="aiEmailForm" onsubmit="generateAIEmail(event)">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #4a5568;">What kind of
+                        email?</label>
+                    <select id="emailType"
+                        style="width: 100%; padding: 12px; border: 2px solid #edf2f7; border-radius: 10px; font-size: 15px;">
+                        <option value="professional">Professional Follow-up</option>
+                        <option value="formal">Formal Inquiry</option>
+                        <option value="casual">Friendly Note</option>
+                        <option value="meeting">Meeting Request</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #4a5568;">Main purpose or
+                        key points:</label>
+                    <textarea id="emailPurpose" rows="4"
+                        placeholder="e.g. Follow up on the project proposal we discussed yesterday..."
+                        style="width: 100%; padding: 12px; border: 2px solid #edf2f7; border-radius: 10px; font-size: 15px; resize: none;"></textarea>
+                </div>
+                <button type="submit" class="btn-primary"
+                    style="width: 100%; padding: 14px; background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%); border: none; color: white; border-radius: 8px; font-weight: 600; font-size: 16px; cursor: pointer;">
+                    <i class="fas fa-sparkles"></i> Generate Draft
+                </button>
+            </form>
+
+            <div id="aiEmailOutput"
+                style="display: none; margin-top: 25px; border-top: 2px solid #edf2f7; padding-top: 20px;">
+                <h3 style="font-size: 15px; color: #718096; margin-bottom: 10px;">AI Result:</h3>
+                <div id="generatedEmail"
+                    style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; font-family: inherit; white-space: pre-wrap; margin-bottom: 15px; line-height: 1.6; color: #2d3748;">
+                </div>
+                <button onclick="copyToClipboard()"
+                    style="width: 100%; padding: 10px; background: #e2e8f0; border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class="fas fa-copy"></i> Copy to Clipboard
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Category Chart
         const categoryCtx = document.getElementById('categoryChart').getContext('2d');
         new Chart(categoryCtx, {
             type: 'doughnut',
             data: {
-                labels: {{ category_labels|tojson|safe }},
-                datasets: [{
-                    data: {{ category_data|tojson|safe }},
-                    backgroundColor: [
-                        '#667eea', '#48bb78', '#ed8936', '#f56565',
-                        '#4299e1', '#9f7aea', '#38b2ac', '#ed64a6'
-                    ]
+                labels: {{ category_labels| tojson | safe }},
+            datasets: [{
+                data: {{ category_data| tojson | safe }},
+            backgroundColor: [
+                '#667eea', '#48bb78', '#ed8936', '#f56565',
+                '#4299e1', '#9f7aea', '#38b2ac', '#ed64a6'
+            ]
                 }]
             },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
                 }
             }
+        }
         });
 
         // Sentiment Chart
@@ -175,18 +279,18 @@
                 datasets: [{
                     label: 'Number of Emails',
                     data: [{{ positive_count }}, {{ neutral_count }}, {{ negative_count }}],
-                    backgroundColor: ['#48bb78', '#ed8936', '#f56565']
+            backgroundColor: ['#48bb78', '#ed8936', '#f56565']
                 }]
             },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
                 }
             }
+        }
         });
 
         // Urgency Chart
@@ -194,21 +298,21 @@
         new Chart(urgencyCtx, {
             type: 'pie',
             data: {
-                labels: {{ urgency_labels|tojson|safe }},
-                datasets: [{
-                    data: {{ urgency_data|tojson|safe }},
-                    backgroundColor: ['#f56565', '#ed8936', '#48bb78']
+                labels: {{ urgency_labels| tojson | safe }},
+            datasets: [{
+                data: {{ urgency_data| tojson | safe }},
+            backgroundColor: ['#f56565', '#ed8936', '#48bb78']
                 }]
             },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
                 }
             }
+        }
         });
 
         // Timeline Chart
@@ -216,26 +320,134 @@
         new Chart(timelineCtx, {
             type: 'line',
             data: {
-                labels: {{ timeline_labels|tojson }},
-                datasets: [{
-                    label: 'Emails Received',
-                    data: {{ timeline_data|tojson }},
-                    borderColor: '#667eea',
-                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                    tension: 0.4,
-                    fill: true
+                labels: {{ timeline_labels| tojson }},
+            datasets: [{
+                label: 'Emails Received',
+                data: {{ timeline_data| tojson }},
+            borderColor: '#667eea',
+            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+            tension: 0.4,
+            fill: true
                 }]
             },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
                 }
             }
+        }
         });
+
+        // Common Navigation Handlers
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        function openSendEmailModal() {
+            document.getElementById('sendEmailModal').style.display = 'block';
+        }
+
+        function openAIEmailModal() {
+            document.getElementById('aiEmailModal').style.display = 'block';
+            document.getElementById('aiEmailOutput').style.display = 'none';
+        }
+
+        async function sendEmail(event) {
+            event.preventDefault();
+            const recipient = document.getElementById('emailRecipient').value;
+            const subject = document.getElementById('emailSubject').value;
+            const body = document.getElementById('emailBody').value;
+            try {
+                const response = await fetch('/api/send_email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ recipient, subject, body })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert('Email logged successfully!');
+                    closeModal('sendEmailModal');
+                    document.getElementById('sendEmailForm').reset();
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to send email');
+            }
+        }
+
+        async function generateAIEmail(event) {
+            event.preventDefault();
+            const emailType = document.getElementById('emailType').value;
+            const purpose = document.getElementById('emailPurpose').value;
+            try {
+                const response = await fetch('/api/generate_ai_email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email_type: emailType, purpose })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    document.getElementById('generatedEmail').textContent = result.email;
+                    document.getElementById('aiEmailOutput').style.display = 'block';
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to generate email');
+            }
+        }
+
+        async function generateTodoList() {
+            if (!confirm('Generate AI-enhanced to-do list from today\'s reminders?')) return;
+            window.location.href = '/reminders?generate=true';
+        }
+
+        function copyToClipboard() {
+            const text = document.getElementById('generatedEmail').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Email copied to clipboard!');
+            });
+        }
+
+        async function refreshEmails() {
+            const btn = document.querySelector('.refresh-btn');
+            btn.classList.add('spinning');
+            try {
+                const response = await fetch('/api/refresh', { method: 'POST' });
+                if (response.ok) {
+                    window.location.reload();
+                }
+            } catch (error) {
+                console.error('Error refreshing:', error);
+            }
+            setTimeout(() => btn.classList.remove('spinning'), 1000);
+        }
+
+        function updateLastUpdateTime() {
+            fetch('/api/stats')
+                .then(response => response.json())
+                .then(data => {
+                    const el = document.getElementById('lastUpdate');
+                    if (el) el.textContent = data.last_update || '--:--';
+                })
+                .catch(error => console.error('Error fetching stats:', error));
+        }
+
+        setInterval(updateLastUpdateTime, 30000);
+        updateLastUpdateTime();
+
+        window.onclick = function (event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+            }
+        }
     </script>
 </body>
+
 </html>

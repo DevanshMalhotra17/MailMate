@@ -1,13 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Spam Filter</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/style.css">
-   
+
 </head>
+
 <body>
     <div class="container">
         <!-- Sidebar -->
@@ -35,19 +37,31 @@
                 </a>
             </nav>
             <div class="sidebar-footer">
-    <button class="refresh-btn" onclick="generateTodoList()" style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); margin-bottom: 10px;">
-        <i class="fas fa-magic"></i>
-        <span>Generate To-Do List</span>
-    </button>
-    <button class="refresh-btn" onclick="openSendEmailModal()">
-        <i class="fas fa-paper-plane"></i>
-        <span>Send Email</span>
-    </button>
-    <button class="refresh-btn" onclick="openAIEmailModal()" style="background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%); margin-top: 10px;">
-        <i class="fas fa-robot"></i>
-        <span>Generate AI Email</span>
-    </button>
-</div>
+                <button class="refresh-btn" onclick="generateTodoList()"
+                    style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); margin-bottom: 10px;">
+                    <i class="fas fa-magic"></i>
+                    <span>Generate To-Do List</span>
+                </button>
+                <button class="refresh-btn" onclick="openSendEmailModal()">
+                    <i class="fas fa-paper-plane"></i>
+                    <span>Send Email</span>
+                </button>
+                <button class="refresh-btn" onclick="openAIEmailModal()"
+                    style="background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%); margin-top: 10px;">
+                    <i class="fas fa-robot"></i>
+                    <span>Generate AI Email</span>
+                </button>
+                <button class="refresh-btn" onclick="refreshEmails()" style="margin-top: 10px;">
+                    <i class="fas fa-sync-alt"></i>
+                    <span>Refresh Emails</span>
+                </button>
+                <button class="refresh-btn" onclick="window.location.href='/logout'"
+                    style="background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%); margin-top: 10px;">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </button>
+                <p class="last-update">Last update: <span id="lastUpdate">--:--</span></p>
+            </div>
         </aside>
 
         <!-- Main Content -->
@@ -100,7 +114,7 @@
                         <button class="filter-btn" onclick="filterSpam('promotions')">Promotions</button>
                     </div>
                 </div>
-                
+
                 {% if spam_emails|length == 0 %}
                 <div class="empty-state">
                     <i class="fas fa-check-circle"></i>
@@ -115,7 +129,7 @@
                             <i class="fas fa-exclamation-triangle"></i>
                             <span>SPAM DETECTED</span>
                         </div>
-                        
+
                         <div class="spam-header">
                             <div class="spam-sender">
                                 <div class="avatar">
@@ -135,12 +149,12 @@
                                 {% endif %}
                             </div>
                         </div>
-                        
+
                         <div class="spam-content">
                             <h3 class="email-subject">{{ email.subject|default('No Subject') }}</h3>
                             <p class="email-preview">{{ email.body[:200]|default('No content')|striptags }}...</p>
                         </div>
-                        
+
                         <div class="spam-footer">
                             <button class="btn-danger" onclick="permanentDelete('{{ email.id }}')">
                                 <i class="fas fa-trash"></i> Delete Permanently
@@ -163,17 +177,20 @@
                 <div class="info-card">
                     <i class="fas fa-shield-alt"></i>
                     <h3>Advanced Protection</h3>
-                    <p>Our AI-powered spam filter analyzes email content, sender reputation, and patterns to keep your inbox clean.</p>
+                    <p>Our AI-powered spam filter analyzes email content, sender reputation, and patterns to keep your
+                        inbox clean.</p>
                 </div>
                 <div class="info-card">
                     <i class="fas fa-brain"></i>
                     <h3>Smart Learning</h3>
-                    <p>The system continuously learns from your feedback to improve spam detection accuracy over time.</p>
+                    <p>The system continuously learns from your feedback to improve spam detection accuracy over time.
+                    </p>
                 </div>
                 <div class="info-card">
                     <i class="fas fa-lock"></i>
                     <h3>Safe & Secure</h3>
-                    <p>All suspicious emails are quarantined safely, protecting you from phishing and malicious content.</p>
+                    <p>All suspicious emails are quarantined safely, protecting you from phishing and malicious content.
+                    </p>
                 </div>
             </div>
         </main>
@@ -189,7 +206,8 @@
             <div class="modal-body">
                 <div class="warning-box">
                     <i class="fas fa-exclamation-triangle"></i>
-                    <strong>Warning:</strong> This email has been identified as spam. Be cautious with any links or attachments.
+                    <strong>Warning:</strong> This email has been identified as spam. Be cautious with any links or
+                    attachments.
                 </div>
                 <div class="detail-row">
                     <strong>From:</strong>
@@ -207,20 +225,132 @@
                     <strong>Email Body:</strong>
                     <div class="email-body-full" id="modalBody"></div>
                 </div>
+                <!-- AI Actions -->
+                <div class="modal-footer"
+                    style="padding-top: 20px; border-top: 1px solid #e2e8f0; display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn-view" onclick="summarizeEmail()"
+                        style="background: linear-gradient(135deg, #a0aec0 0%, #718096 100%);">
+                        <i class="fas fa-compress-alt"></i> AI Summarize
+                    </button>
+                    <button class="btn-view" onclick="speakEmail(event)"
+                        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        <i class="fas fa-volume-up"></i> Read Aloud
+                    </button>
+                    <button class="btn-view" onclick="pauseSpeech()" id="pauseBtn"
+                        style="display:none; background: #ecc94b; color: #744210;">
+                        <i class="fas fa-pause"></i> Pause
+                    </button>
+                    <button class="btn-view" onclick="resumeSpeech()" id="resumeBtn"
+                        style="display:none; background: #48bb78;">
+                        <i class="fas fa-play"></i> Resume
+                    </button>
+                    <button class="btn-view" onclick="stopSpeech()" id="stopBtn"
+                        style="display:none; background: #f56565;">
+                        <i class="fas fa-stop"></i> Stop
+                    </button>
+                </div>
+                <div id="summaryBox"
+                    style="display: none; margin-top: 20px; padding: 15px; background: #f7fafc; border-radius: 8px; border-left: 4px solid #667eea;">
+                    <strong>AI Summary:</strong>
+                    <p id="summaryText" style="margin-top: 10px; font-style: italic;"></p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Modals (Copied from Index for consistency) -->
+    <!-- Send Email Modal -->
+    <div id="sendEmailModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal('sendEmailModal')">&times;</span>
+            <h2>Send New Email</h2>
+            <form id="sendEmailForm" onsubmit="sendEmail(event)">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px;">Recipient Email:</label>
+                    <input type="email" id="emailRecipient" required
+                        style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px;">Subject:</label>
+                    <input type="text" id="emailSubject" required
+                        style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px;">Message Body:</label>
+                    <textarea id="emailBody" rows="8" required
+                        style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;"></textarea>
+                </div>
+                <button type="submit" class="btn-primary" style="width: 100%; padding: 12px; font-weight: 600;">
+                    <i class="fas fa-paper-plane"></i> Send Email
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- AI Email Generation Modal -->
+    <div id="aiEmailModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal('aiEmailModal')">&times;</span>
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+                <div
+                    style="width: 50px; height: 50px; background: #9f7aea; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px;">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div>
+                    <h2 style="margin: 0;">AI Email Generator</h2>
+                    <p style="margin: 5px 0 0; color: #718096; font-size: 14px;">Powered by Gemini 1.5</p>
+                </div>
+            </div>
+
+            <form id="aiEmailForm" onsubmit="generateAIEmail(event)">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #4a5568;">What kind of
+                        email?</label>
+                    <select id="emailType"
+                        style="width: 100%; padding: 12px; border: 2px solid #edf2f7; border-radius: 10px; font-size: 15px;">
+                        <option value="professional">Professional Follow-up</option>
+                        <option value="formal">Formal Inquiry</option>
+                        <option value="casual">Friendly Note</option>
+                        <option value="meeting">Meeting Request</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #4a5568;">Main purpose or
+                        key points:</label>
+                    <textarea id="emailPurpose" rows="4"
+                        placeholder="e.g. Follow up on the project proposal we discussed yesterday..."
+                        style="width: 100%; padding: 12px; border: 2px solid #edf2f7; border-radius: 10px; font-size: 15px; resize: none;"></textarea>
+                </div>
+                <button type="submit" class="btn-primary"
+                    style="width: 100%; padding: 14px; background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%); border: none; font-weight: 600; font-size: 16px;">
+                    <i class="fas fa-sparkles"></i> Generate Draft
+                </button>
+            </form>
+
+            <div id="aiEmailOutput"
+                style="display: none; margin-top: 25px; border-top: 2px solid #edf2f7; padding-top: 20px;">
+                <h3 style="font-size: 15px; color: #718096; margin-bottom: 10px;">AI Result:</h3>
+                <div id="generatedEmail"
+                    style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; font-family: inherit; white-space: pre-wrap; margin-bottom: 15px; line-height: 1.6; color: #2d3748;">
+                </div>
+                <button onclick="copyToClipboard()" class="btn-view" style="width: 100%; justify-content: center;">
+                    <i class="fas fa-copy"></i> Copy to Clipboard
+                </button>
             </div>
         </div>
     </div>
 
     <script>
-        const spamEmails = {{ spam_emails|tojson }};
+        const spamEmails = {{ spam_emails| tojson }};
 
         function filterSpam(type) {
             const cards = document.querySelectorAll('.spam-card');
             const buttons = document.querySelectorAll('.filter-btn');
-            
+
             buttons.forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
-            
+
             cards.forEach(card => {
                 if (type === 'all') {
                     card.style.display = 'block';
@@ -245,6 +375,98 @@
 
         function closeModal() {
             document.getElementById('spamModal').style.display = 'none';
+            document.getElementById('summaryBox').style.display = 'none';
+            window.speechSynthesis.cancel();
+        }
+
+        async function summarizeEmail() {
+            const body = document.getElementById('modalBody').textContent;
+            const summaryBox = document.getElementById('summaryBox');
+            const summaryText = document.getElementById('summaryText');
+
+            summaryText.textContent = "Summarizing...";
+            summaryBox.style.display = 'block';
+
+            try {
+                const response = await fetch('/api/summarize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ body })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    summaryText.textContent = result.summary;
+                } else {
+                    summaryText.textContent = "Error: " + result.message;
+                }
+            } catch (error) {
+                summaryText.textContent = "Failed to fetch summary.";
+            }
+        }
+
+        async function speakEmail(event) {
+            const body = document.getElementById('modalBody').textContent;
+            const speakBtn = event.currentTarget;
+            const originalHTML = speakBtn.innerHTML;
+
+            // Show loading state
+            speakBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            speakBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/clean_text', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ body })
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(result.cleaned_text);
+
+                    utterance.onstart = () => {
+                        document.getElementById('pauseBtn').style.display = 'flex';
+                        document.getElementById('stopBtn').style.display = 'flex';
+                        document.getElementById('resumeBtn').style.display = 'none';
+                    };
+
+                    utterance.onend = () => {
+                        document.getElementById('pauseBtn').style.display = 'none';
+                        document.getElementById('stopBtn').style.display = 'none';
+                        document.getElementById('resumeBtn').style.display = 'none';
+                    };
+
+                    window.speechSynthesis.speak(utterance);
+                } else {
+                    alert('Error cleaning text: ' + result.message);
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Failed to process text for reading.');
+            } finally {
+                speakBtn.innerHTML = originalHTML;
+                speakBtn.disabled = false;
+            }
+        }
+
+        function pauseSpeech() {
+            window.speechSynthesis.pause();
+            document.getElementById('pauseBtn').style.display = 'none';
+            document.getElementById('resumeBtn').style.display = 'flex';
+        }
+
+        function resumeSpeech() {
+            window.speechSynthesis.resume();
+            document.getElementById('pauseBtn').style.display = 'flex';
+            document.getElementById('resumeBtn').style.display = 'none';
+        }
+
+        function stopSpeech() {
+            window.speechSynthesis.cancel();
+            document.getElementById('pauseBtn').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('resumeBtn').style.display = 'none';
         }
 
         function permanentDelete(emailId) {
@@ -261,12 +483,111 @@
             }
         }
 
-        window.onclick = function(event) {
-            const modal = document.getElementById('spamModal');
-            if (event.target === modal) {
-                closeModal();
+        function openSendEmailModal() {
+            document.getElementById('sendEmailModal').style.display = 'block';
+        }
+
+        function openAIEmailModal() {
+            document.getElementById('aiEmailModal').style.display = 'block';
+            document.getElementById('aiEmailOutput').style.display = 'none';
+        }
+
+        async function sendEmail(event) {
+            event.preventDefault();
+            const recipient = document.getElementById('emailRecipient').value;
+            const subject = document.getElementById('emailSubject').value;
+            const body = document.getElementById('emailBody').value;
+            try {
+                const response = await fetch('/api/send_email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ recipient, subject, body })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert('Email logged successfully!');
+                    closeModal('sendEmailModal');
+                    document.getElementById('sendEmailForm').reset();
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to send email');
+            }
+        }
+
+        async function generateAIEmail(event) {
+            event.preventDefault();
+            const emailType = document.getElementById('emailType').value;
+            const purpose = document.getElementById('emailPurpose').value;
+            try {
+                const response = await fetch('/api/generate_ai_email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email_type: emailType, purpose })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    document.getElementById('generatedEmail').textContent = result.email;
+                    document.getElementById('aiEmailOutput').style.display = 'block';
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to generate email');
+            }
+        }
+
+        async function generateTodoList() {
+            if (!confirm('Generate AI-enhanced to-do list from today\'s reminders?')) return;
+            window.location.href = '/reminders?generate=true';
+        }
+
+        function copyToClipboard() {
+            const text = document.getElementById('generatedEmail').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Email copied to clipboard!');
+            });
+        }
+
+        // Refresh emails
+        async function refreshEmails() {
+            const btn = document.querySelector('.refresh-btn');
+            btn.classList.add('spinning');
+            try {
+                const response = await fetch('/api/refresh', { method: 'POST' });
+                if (response.ok) {
+                    window.location.reload();
+                }
+            } catch (error) {
+                console.error('Error refreshing:', error);
+            }
+            setTimeout(() => btn.classList.remove('spinning'), 1000);
+        }
+
+        // Update last update time
+        function updateLastUpdateTime() {
+            fetch('/api/stats')
+                .then(response => response.json())
+                .then(data => {
+                    const el = document.getElementById('lastUpdate');
+                    if (el) el.textContent = data.last_update || '--:--';
+                })
+                .catch(error => console.error('Error fetching stats:', error));
+        }
+
+        // Auto-refresh stats every 30 seconds
+        setInterval(updateLastUpdateTime, 30000);
+        updateLastUpdateTime();
+
+        window.onclick = function (event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
             }
         }
     </script>
 </body>
+
 </html>

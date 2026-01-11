@@ -1,6 +1,6 @@
+import os
 import time
 import threading
-import os
 from datetime import datetime, timedelta
 from flask import Flask, render_template, jsonify, request, redirect, url_for, send_from_directory, session
 import pandas as pd
@@ -11,9 +11,13 @@ import google.generativeai as genai
 from functools import wraps
 from dotenv import load_dotenv
 from flask_mail import Mail, Message
+from google_auth_oauthlib.flow import Flow
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+import json
 
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
-# Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__, template_folder="templates")
@@ -26,29 +30,22 @@ app.config["MAIL_USE_TLS"]=True
 app.config["MAIL_USE_SSL"]=False
 app.config["MAIL_USERNAME"]="devansh.malhotra2027@gmail.com"
 app.config["MAIL_PASSWORD"]="oupe afur cgeh xrio"
-app.config["MAIL_DEFAULT_SENDER"]=("MyApp", "devansh.malhotra2027@gmail.com")
+app.config["MAIL_DEFAULT_SENDER"]=("MailMate", "devansh.malhotra2027@gmail.com")
 mail=Mail(app)
 
-# Configure Gemini API from environment variable
 API_KEY = os.getenv("API_KEY")
 if not API_KEY:
     raise ValueError("API_KEY not found in .env file!")
 genai.configure(api_key=API_KEY)
-
-# Simple user database (in production, use a real database!)
-USERS = {
-    'admin': 'admin123',  # username: password
-    'user': 'password123'
-}
-
-# File to store users
+DATA_DIR = 'user_data'
 USERS_FILE = 'users.json'
+USERS = {}
 
-# Load users from file if it exists
-# File to store users
-USERS_FILE = 'users.json'
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR)
 
-# Load users from file if it exists
+SCOPES = ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.send']
+
 def load_users():
     global USERS
     if os.path.exists(USERS_FILE):
@@ -56,16 +53,18 @@ def load_users():
         with open(USERS_FILE, 'r') as f:
             USERS = json.load(f)
 
-# Save users to file
 def save_users():
     import json
     with open(USERS_FILE, 'w') as f:
         json.dump(USERS, f, indent=4)
-
-# Load users on startup
 load_users()
 
-# Login required decorator
+def get_user_token_path(username):
+    return os.path.join(DATA_DIR, f"{username}_token.json")
+
+def get_user_data_path(username):
+    return os.path.join(DATA_DIR, f"{username}_emails.xlsx")
+
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -74,7 +73,6 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# Global state
 pipeline_state = {
     'running': True,
     'last_update': None,
@@ -82,7 +80,6 @@ pipeline_state = {
     'processed_today': 0
 }
 
-# Login routes
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     """Login page"""
@@ -110,13 +107,11 @@ def logout():
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
-    """Signup page"""
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
         
-        # Validation
         if not username or not password:
             return render_template('signup.html', error='Username and password are required')
         
@@ -132,53 +127,102 @@ def signup():
         if username in USERS:
             return render_template('signup.html', error='Username already exists')
         
-        # Create new user
         USERS[username] = password
         save_users()
         
-        # Auto login after signup
         session['username'] = username
         return redirect(url_for('index'))
     
-    # If already logged in, redirect to index
     if 'username' in session:
         return redirect(url_for('index'))
     
     return render_template('signup.html')
 
-# Serve CSS from templates folder
+@app.route('/authorize')
+@login_required
+def authorize():
+    flow = Flow.from_client_secrets_file(
+        'credentials.json',
+        scopes=SCOPES,
+        redirect_uri=url_for('oauth2callback', _external=True)
+    )
+    authorization_url, state = flow.authorization_url(
+        access_type='offline',
+        include_granted_scopes='true'
+    )
+    session['oauth_state'] = state
+    return redirect(authorization_url)
+
+@app.route('/oauth2callback')
+@login_required
+def oauth2callback():
+    state = session['oauth_state']
+    flow = Flow.from_client_secrets_file(
+        'credentials.json',
+        scopes=SCOPES,
+        state=state,
+        redirect_uri=url_for('oauth2callback', _external=True)
+    )
+    authorization_response = request.url
+    flow.fetch_token(authorization_response=authorization_response)
+    
+    credentials = flow.credentials
+    token_path = get_user_token_path(session['username'])
+    with open(token_path, 'w') as f:
+        f.write(credentials.to_json())
+    
+    return redirect(url_for('index'))
+
 @app.route('/style.css')
 def serve_css():
-    """Serve CSS file from templates folder"""
-    return send_from_directory('templates', 'style.css', mimetype='text/css')
+    return send_from_directory(os.path.join(base_dir, 'templates'), 'style.css', mimetype='text/css')
 
-def run_pipeline():
-    """Run the email fetching and processing pipeline"""
+def run_pipeline_for_user(username):
     try:
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Running pipeline...")
+        token_path = get_user_token_path(username)
+        if not os.path.exists(token_path):
+            return
+            
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Running pipeline for {username}...")
+        
+        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+        if not creds.valid:
+            if creds.expired and creds.refresh_token:
+                from google.auth.transport.requests import Request
+                creds.refresh(Request())
+                with open(token_path, 'w') as f:
+                    f.write(creds.to_json())
+            else:
+                print(f"Token invalid for {username}")
+                return
+
+        data_path = get_user_data_path(username)
         
         # Fetch emails from Gmail
-        fetch_gmail()
+        fetch_gmail(creds=creds, filepath=data_path)
         
         # Read and process emails
-        df = pd.read_excel("fetch/email.xlsx")
-        df = run_function_call(df)
+        if os.path.exists(data_path):
+            df = pd.read_excel(data_path)
+            df = run_function_call(df)
+            
+            df.to_excel(data_path, index=False)
+            
+            # Update state (global state per user would be better, but keeping it simple)
+            pipeline_state['last_update'] = datetime.now()
+            pipeline_state['total_emails'] = len(df)
+            pipeline_state['processed_today'] = len(df[df['spam'].notna()])
         
-        # Save processed emails
-        df.to_excel("fetch/email.xlsx", index=False)
-        
-        # Update state
-        pipeline_state['last_update'] = datetime.now()
-        pipeline_state['total_emails'] = len(df)
-        pipeline_state['processed_today'] = len(df[df['spam'].notna()])
-        
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Pipeline completed. Processed {len(df)} emails.")
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Pipeline completed for {username}.")
         
     except Exception as e:
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Pipeline error: {e}")
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Pipeline error for {username}: {e}")
+
+def run_pipeline():
+    for username in USERS:
+        run_pipeline_for_user(username)
 
 def pipeline_loop():
-    """Background thread that runs the pipeline every 10 minutes"""
     while True:
         if pipeline_state['running']:
             run_pipeline()
@@ -187,15 +231,18 @@ def pipeline_loop():
 @app.route('/')
 @login_required
 def index():
-    """Main dashboard page - Inbox view"""
     try:
-        if os.path.exists("fetch/email.xlsx"):
-            df = pd.read_excel("fetch/email.xlsx")
+        data_path = get_user_data_path(session['username'])
+        if os.path.exists(data_path):
+            df = pd.read_excel(data_path)
             emails = df.to_dict('records')
         else:
             emails = []
         
-        return render_template('index.html', emails=emails)
+        # Check if user has connected Gmail
+        has_gmail = os.path.exists(get_user_token_path(session['username']))
+        
+        return render_template('index.html', emails=emails, has_gmail=has_gmail)
     
     except Exception as e:
         print(f"Error loading emails: {e}")
@@ -204,10 +251,10 @@ def index():
 @app.route('/analysis')
 @login_required
 def analysis():
-    """Analysis page with charts and statistics"""
     try:
-        if os.path.exists("fetch/email.xlsx"):
-            df = pd.read_excel("fetch/email.xlsx")
+        data_path = get_user_data_path(session['username'])
+        if os.path.exists(data_path):
+            df = pd.read_excel(data_path)
             
             # Calculate sentiment counts
             positive_count = len(df[df['sentiment'].astype(str).str.lower().str.contains('positive', na=False)])
@@ -226,7 +273,7 @@ def analysis():
             
             # Timeline data (emails per day for last 7 days)
             timeline_labels = [(datetime.now() - timedelta(days=i)).strftime('%b %d') for i in range(6, -1, -1)]
-            timeline_data = [5, 8, 6, 9, 7, 10, 12]  # Placeholder
+            timeline_data = [5, 8, 6, 9, 7, 10, 12]
             
             return render_template('analysis.html',
                                  positive_count=positive_count,
@@ -269,10 +316,10 @@ def analysis():
 @app.route('/reminders')
 @login_required
 def reminders():
-    """Reminders page showing all emails with reminders"""
     try:
-        if os.path.exists("fetch/email.xlsx"):
-            df = pd.read_excel("fetch/email.xlsx")
+        data_path = get_user_data_path(session['username'])
+        if os.path.exists(data_path):
+            df = pd.read_excel(data_path)
             
             # Filter emails that have reminders
             reminder_df = df[df['reminder'].notna() & (df['reminder'] != '')]
@@ -304,10 +351,10 @@ def reminders():
 @app.route('/spam')
 @login_required
 def spam():
-    """Spam page showing all detected spam emails"""
     try:
-        if os.path.exists("fetch/email.xlsx"):
-            df = pd.read_excel("fetch/email.xlsx")
+        data_path = get_user_data_path(session['username'])
+        if os.path.exists(data_path):
+            df = pd.read_excel(data_path)
             
             # Filter spam emails
             spam_df = df[df['spam'].astype(str).str.lower() == 'true']
@@ -338,7 +385,6 @@ def spam():
 
 @app.route('/api/refresh', methods=['POST'])
 def refresh_emails():
-    """Manually trigger pipeline"""
     try:
         run_pipeline()
         return redirect(request.referrer or url_for('index'))
@@ -348,10 +394,10 @@ def refresh_emails():
 
 @app.route('/api/stats')
 def get_stats():
-    """API endpoint to get current statistics"""
     try:
-        if os.path.exists("fetch/email.xlsx"):
-            df = pd.read_excel("fetch/email.xlsx")
+        data_path = get_user_data_path(session.get('username'))
+        if os.path.exists(data_path):
+            df = pd.read_excel(data_path)
             total = len(df)
             processed = len(df[df['spam'].notna()])
         else:
@@ -369,10 +415,10 @@ def get_stats():
 
 @app.route('/api/emails')
 def get_emails():
-    """API endpoint to get all emails as JSON"""
     try:
-        if os.path.exists("fetch/email.xlsx"):
-            df = pd.read_excel("fetch/email.xlsx")
+        data_path = get_user_data_path(session.get('username'))
+        if os.path.exists(data_path):
+            df = pd.read_excel(data_path)
             emails = df.to_dict('records')
             return jsonify({'emails': emails})
         else:
@@ -382,7 +428,6 @@ def get_emails():
 
 @app.route('/api/send_email', methods=['POST', 'GET'])
 def send_email():
-    """Log email sending data"""
     try:
         data = request.json
         if not data:
@@ -426,9 +471,59 @@ def send_email():
         print(f"Error logging email: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@app.route('/api/summarize', methods=['POST'])
+@login_required
+def summarize_email():
+    try:
+        data = request.json
+        if not data:
+            return jsonify({'success': False, 'message': 'Invalid request data'}), 400
+        body = data.get('body')
+        
+        prompt = f"""Summarize this email concisely in 2-3 bullet points:
+        
+{body}"""
+        
+        model = genai.GenerativeModel("models/gemma-3-12b-it")
+        response = model.generate_content(prompt)
+        
+        return jsonify({
+            'success': True,
+            'summary': response.text
+        })
+    except Exception as e:
+        print(f"Error summarizing: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/clean_text', methods=['POST'])
+@login_required
+def clean_text():
+    try:
+        data = request.json
+        if not data:
+            return jsonify({'success': False, 'message': 'Invalid request data'}), 400
+        body = data.get('body')
+        
+        prompt = f"""Extract only the main natural language text from this email suitable for reading aloud. 
+        Remove all URLs, 'View image', 'Follow link', 'Caption', repetitive dashes/dividers, header/footer navigation, and technical metadata.
+        Format it as clean, readable paragraphs.
+        
+        Email Content:
+        {body}"""
+        
+        model = genai.GenerativeModel("models/gemma-3-12b-it")
+        response = model.generate_content(prompt)
+        
+        return jsonify({
+            'success': True,
+            'cleaned_text': response.text
+        })
+    except Exception as e:
+        print(f"Error cleaning text: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @app.route('/api/generate_ai_email', methods=['POST'])
 def generate_ai_email():
-    """Generate email using Gemini AI"""
     try:
         data = request.json
         if not data:
@@ -443,7 +538,7 @@ def generate_ai_email():
 
 Please write a professional, well-structured email. Include appropriate greeting, body, and closing."""
         
-        model = genai.GenerativeModel("gemini-2.5")
+        model = genai.GenerativeModel("models/gemma-3-12b-it")
         response = model.generate_content(prompt)
         
         generated_email = response.text
@@ -479,12 +574,12 @@ Please write a professional, well-structured email. Include appropriate greeting
 
 @app.route('/api/generate_todo', methods=['POST'])
 def generate_todo():
-    """Generate AI-enhanced to-do list from today's reminders"""
     try:
-        if not os.path.exists("fetch/email.xlsx"):
+        data_path = get_user_data_path(session.get('username'))
+        if not os.path.exists(data_path):
             return jsonify({'success': False, 'message': 'No emails found'}), 404
         
-        df = pd.read_excel("fetch/email.xlsx")
+        df = pd.read_excel(data_path)
         
         # Filter reminders
         reminder_df = df[df['reminder'].notna() & (df['reminder'] != '')]
@@ -517,7 +612,7 @@ def generate_todo():
 
 Please organize them by priority, add estimated time for each task, and suggest the best order to complete them. Format as a clear, actionable to-do list."""
         
-        model = genai.GenerativeModel("gemini-2.5")
+        model = genai.GenerativeModel("models/gemma-3-12b-it")
         response = model.generate_content(prompt)
         
         ai_todo_list = response.text
@@ -546,7 +641,9 @@ Please organize them by priority, add estimated time for each task, and suggest 
         return jsonify({
             'success': True,
             'filename': filename,
-            'task_count': len(today_reminders)
+            'task_count': len(today_reminders),
+            'tasks': todo_data,
+            'ai_todo': ai_todo_list
         })
     
     except Exception as e:
@@ -555,17 +652,17 @@ Please organize them by priority, add estimated time for each task, and suggest 
 
 @app.route('/api/mark_complete', methods=['POST'])
 def mark_complete():
-    """Mark a reminder as complete"""
     try:
         data = request.json
         if not data:
             return jsonify({'success': False, 'message': 'Invalid request data'}), 400
         email_id = data.get('email_id')
         
-        if not os.path.exists("fetch/email.xlsx"):
+        data_path = get_user_data_path(session.get('username'))
+        if not os.path.exists(data_path):
             return jsonify({'success': False, 'message': 'Email file not found'}), 404
         
-        df = pd.read_excel("fetch/email.xlsx")
+        df = pd.read_excel(data_path)
         
         # Add completed column if it doesn't exist
         if 'completed' not in df.columns:
@@ -575,7 +672,7 @@ def mark_complete():
         df.loc[df['id'] == email_id, 'completed'] = True
         df.loc[df['id'] == email_id, 'completed_date'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
-        df.to_excel("fetch/email.xlsx", index=False)
+        df.to_excel(data_path, index=False)
         
         print(f"[REMINDER COMPLETED] ID: {email_id}")
         
@@ -587,7 +684,6 @@ def mark_complete():
 
 @app.route('/download/<filename>')
 def download_file(filename):
-    """Download generated files"""
     try:
         return send_from_directory('.', filename, as_attachment=True)
     except Exception as e:
@@ -595,8 +691,6 @@ def download_file(filename):
         return "File not found", 404
 
 def main():
-    """Main function to start Flask app and background pipeline"""
-    # Start pipeline in background thread
     pipeline_thread = threading.Thread(target=pipeline_loop, daemon=True)
     pipeline_thread.start()
     
@@ -616,7 +710,6 @@ def main():
     print(f"Pipeline interval: 10 minutes")
     print("=" * 60)
     
-    # Run Flask app
     app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
 
 if __name__ == "__main__":

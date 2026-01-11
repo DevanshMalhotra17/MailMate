@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -38,6 +39,7 @@
                 transform: translateY(50px);
                 opacity: 0;
             }
+
             to {
                 transform: translateY(0);
                 opacity: 1;
@@ -58,8 +60,15 @@
         }
 
         @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
         }
 
         .login-header h1 {
@@ -90,9 +99,19 @@
         }
 
         @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-10px); }
-            75% { transform: translateX(10px); }
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            25% {
+                transform: translateX(-10px);
+            }
+
+            75% {
+                transform: translateX(10px);
+            }
         }
 
         .error-message i {
@@ -229,41 +248,6 @@
             padding: 0 15px;
         }
 
-        .demo-credentials {
-            background: #f7fafc;
-            border: 2px dashed #cbd5e0;
-            border-radius: 10px;
-            padding: 15px;
-            margin-top: 20px;
-        }
-
-        .demo-credentials h4 {
-            color: #2d3748;
-            font-size: 14px;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .demo-credentials h4 i {
-            color: #667eea;
-        }
-
-        .demo-credentials p {
-            color: #4a5568;
-            font-size: 13px;
-            line-height: 1.8;
-        }
-
-        .demo-credentials code {
-            background: white;
-            padding: 2px 6px;
-            border-radius: 4px;
-            color: #667eea;
-            font-weight: 600;
-        }
-
         .login-footer {
             text-align: center;
             padding: 20px;
@@ -319,6 +303,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="login-container">
         <div class="login-header">
@@ -340,13 +325,8 @@
                     <label for="username">Username</label>
                     <div class="input-wrapper">
                         <i class="fas fa-user"></i>
-                        <input type="text" 
-                               id="username" 
-                               name="username" 
-                               class="form-control" 
-                               placeholder="Enter your username" 
-                               required 
-                               autofocus>
+                        <input type="text" id="username" name="username" class="form-control"
+                            placeholder="Enter your username" required autofocus>
                     </div>
                 </div>
 
@@ -354,12 +334,8 @@
                     <label for="password">Password</label>
                     <div class="input-wrapper">
                         <i class="fas fa-lock"></i>
-                        <input type="password" 
-                               id="password" 
-                               name="password" 
-                               class="form-control" 
-                               placeholder="Enter your password" 
-                               required>
+                        <input type="password" id="password" name="password" class="form-control"
+                            placeholder="Enter your password" required>
                         <i class="fas fa-eye password-toggle" onclick="togglePassword()"></i>
                     </div>
                 </div>
@@ -377,22 +353,6 @@
                     <span>Sign In</span>
                 </button>
             </form>
-
-            <div class="divider">
-                <span>Demo Credentials</span>
-            </div>
-
-            <div class="demo-credentials">
-                <h4><i class="fas fa-info-circle"></i> Test Login</h4>
-                <p>
-                    Username: <code>admin</code><br>
-                    Password: <code>admin123</code>
-                </p>
-                <p style="margin-top: 8px;">
-                    Username: <code>user</code><br>
-                    Password: <code>password123</code>
-                </p>
-            </div>
         </div>
 
         <div class="login-footer">
@@ -404,7 +364,7 @@
         function togglePassword() {
             const passwordInput = document.getElementById('password');
             const toggleIcon = document.querySelector('.password-toggle');
-            
+
             if (passwordInput.type === 'password') {
                 passwordInput.type = 'text';
                 toggleIcon.classList.remove('fa-eye');
@@ -417,37 +377,22 @@
         }
 
         // Auto-focus on username field
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('username').focus();
         });
 
         // Handle form submission with loading state
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
+        document.getElementById('loginForm').addEventListener('submit', function (e) {
             const btn = this.querySelector('.login-btn');
             const icon = btn.querySelector('i');
             const span = btn.querySelector('span');
-            
+
             btn.disabled = true;
             icon.classList.remove('fa-sign-in-alt');
             icon.classList.add('fa-spinner', 'fa-spin');
             span.textContent = 'Signing In...';
         });
-
-        // Quick login buttons (for demo)
-        document.addEventListener('keydown', function(e) {
-            // Alt + 1 for admin login
-            if (e.altKey && e.key === '1') {
-                document.getElementById('username').value = 'admin';
-                document.getElementById('password').value = 'admin123';
-                document.getElementById('loginForm').submit();
-            }
-            // Alt + 2 for user login
-            if (e.altKey && e.key === '2') {
-                document.getElementById('username').value = 'user';
-                document.getElementById('password').value = 'password123';
-                document.getElementById('loginForm').submit();
-            }
-        });
     </script>
 </body>
+
 </html>

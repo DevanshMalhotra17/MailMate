@@ -1,9 +1,14 @@
 import google.generativeai as genai
 import pandas as pd
-import time
 import os
-API_KEY = "AIzaSyCzv_m9tL7SfqkekHaWQSl9SHRc8cM0bMM"
-genai.configure(api_key=API_KEY)
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+API_KEY = os.getenv("API_KEY")
+if API_KEY:
+    genai.configure(api_key=API_KEY)
 
 functions = [
     {
@@ -15,7 +20,7 @@ functions = [
                                 "type": "string",
                                 "description": "text of reminder"
                             },
-                                "date" : {
+                            "reminder_date" : {
                                 "type" : "string",
                                 "description" : "date of the reminder in MM-DD-YYYY format or else just give none"
                             },
@@ -45,19 +50,20 @@ functions = [
                                 "description": "true if email is spam, false if email is not spam"
                             }
                         },
-                        "required" : ["reminder", "date", "category", "sentiment", "urgency", "spam"]
+                        "required" : ["reminder", "reminder_date", "category", "sentiment", "urgency", "spam"]
         }
     }
 ]
 
 def extract_data(subject, body):
-    model = genai.GenerativeModel(model_name="gemini-2.5-flash", tools = [
+    model = genai.GenerativeModel(model_name="models/gemini-1.5-flash-8b", tools = [
         {
             "function_declarations": functions
         }
     ])
-    prompt = f"""annalyze the email and create and call the create_reminder with a reminder and a date if needed
-    subject:{subject}, body:{body}"""
+    prompt = f"""Analyze the email and call the create_email_analysis function with the extracted details.
+    Subject: {subject}
+    Body: {body}"""
     try:
         response = model.generate_content(prompt)
         if response.candidates:
@@ -69,7 +75,7 @@ def extract_data(subject, body):
                     return {
                             "spam": args["spam"] if "spam" in args else False,
                             "reminder": args["reminder"] if "reminder" in args else "",
-                            "date": args["date"] if "date" in args else "",
+                            "reminder_date": args["reminder_date"] if "reminder_date" in args else "",
                             "category": args["category"] if "category" in args else "Other",
                                     "sentiment": args["sentiment"] if "sentiment" in args else "Neutral",
                                     "urgency": args["urgency"] if "urgency" in args else "Low",
@@ -78,27 +84,12 @@ def extract_data(subject, body):
         print("error", e)
     return None
 
-# # reminder, date, category, sentiment, urgency, spam = extract_data(subject, body)
-# print(reminder)
-# print(date)
-# print(category)
-# print(sentiment)
-# print(urgency)
-# data = {
-#     "reminder": reminder,
-#     "date": date,
-#     "category": category,
-#     "sentiment": sentiment,
-#     "urgency": urgency,
-#     "spam": spam
-# }
-# df = pd.DataFrame([data])
-# df.to_csv("email_data.xlsx")
 def run_function_call(df):
-    cols=["spam", "reminder", "date", "category", "sentiment", "urgency"]
+    cols=["spam", "reminder", "reminder_date", "category", "sentiment", "urgency"]
     for col in cols:
         if col not in df:
-            df[col]=None
+            df[col] = ""
+        df[col] = df[col].astype(object)
     new_rows=df[df["spam"].isna()]
     for idx,row in new_rows.iterrows():
         result=extract_data(row["subject"], row["body"])

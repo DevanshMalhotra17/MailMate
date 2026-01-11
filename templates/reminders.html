@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Email Reminders & To-Do</title>
     <link rel="stylesheet" href="/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         /* Additional styles specific to reminders page */
         .header-btn {
@@ -34,6 +36,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <!-- Sidebar -->
@@ -61,7 +64,8 @@
                 </a>
             </nav>
             <div class="sidebar-footer">
-                <button class="refresh-btn" onclick="generateTodoList()" style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); margin-bottom: 10px;">
+                <button class="refresh-btn" onclick="generateTodoList()"
+                    style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); margin-bottom: 10px;">
                     <i class="fas fa-magic"></i>
                     <span>Generate To-Do List</span>
                 </button>
@@ -69,10 +73,21 @@
                     <i class="fas fa-paper-plane"></i>
                     <span>Send Email</span>
                 </button>
-                <button class="refresh-btn" onclick="openAIEmailModal()" style="background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%); margin-top: 10px;">
+                <button class="refresh-btn" onclick="openAIEmailModal()"
+                    style="background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%); margin-top: 10px;">
                     <i class="fas fa-robot"></i>
                     <span>Generate AI Email</span>
                 </button>
+                <button class="refresh-btn" onclick="refreshEmails()" style="margin-top: 10px;">
+                    <i class="fas fa-sync-alt"></i>
+                    <span>Refresh Emails</span>
+                </button>
+                <button class="refresh-btn" onclick="window.location.href='/logout'"
+                    style="background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%); margin-top: 10px;">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </button>
+                <p class="last-update">Last update: <span id="lastUpdate">--:--</span></p>
             </div>
         </aside>
 
@@ -130,7 +145,7 @@
             <!-- Reminders List -->
             <div class="reminders-container">
                 <h2 class="section-title">Active Reminders</h2>
-                
+
                 {% if reminders|length == 0 %}
                 <div class="empty-state">
                     <i class="fas fa-bell-slash"></i>
@@ -140,7 +155,8 @@
                 {% else %}
                 <div class="reminder-list" id="reminderList">
                     {% for email in reminders %}
-                    <div class="reminder-card {% if email.urgency == 'high' %}urgent{% endif %}" data-urgency="{{ email.urgency }}" data-date="{{ email.date }}">
+                    <div class="reminder-card {% if email.urgency == 'high' %}urgent{% endif %}"
+                        data-urgency="{{ email.urgency }}" data-date="{{ email.reminder_date }}">
                         <div class="reminder-header">
                             <div class="reminder-icon">
                                 <i class="fas fa-bell"></i>
@@ -149,10 +165,10 @@
                                 <h3>{{ email.reminder }}</h3>
                                 <p class="reminder-date">
                                     <i class="fas fa-calendar"></i>
-                                    {% if email.date and email.date != 'none' %}
-                                        Due: {{ email.date }}
+                                    {% if email.reminder_date and email.reminder_date != 'none' %}
+                                    Due: {{ email.reminder_date }}
                                     {% else %}
-                                        No due date set
+                                    No due date set
                                     {% endif %}
                                 </p>
                             </div>
@@ -162,7 +178,7 @@
                             </span>
                             {% endif %}
                         </div>
-                        
+
                         <div class="reminder-body">
                             <div class="email-info">
                                 <div class="info-item">
@@ -178,17 +194,19 @@
                                     <span class="badge badge-category">{{ email.category|default('Other') }}</span>
                                 </div>
                             </div>
-                            
+
                             <div class="reminder-preview">
                                 {{ email.body[:150]|default('No preview available') }}...
                             </div>
                         </div>
-                        
+
                         <div class="reminder-footer">
-                            <button class="btn-view" onclick="viewEmailDetails('{{ email.subject }}', '{{ email.from }}', '{{ email.body }}')">
+                            <button class="btn-view"
+                                onclick="viewEmailDetails('{{ email.subject }}', '{{ email.from }}', '{{ email.body }}')">
                                 <i class="fas fa-eye"></i> View Full Email
                             </button>
-                            <button class="btn-view" onclick="markComplete('{{ email.id }}')" style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); margin-left: 10px;">
+                            <button class="btn-view" onclick="markComplete('{{ email.id }}')"
+                                style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); margin-left: 10px;">
                                 <i class="fas fa-check"></i> Mark Complete
                             </button>
                         </div>
@@ -216,6 +234,35 @@
                     <strong>Full Message:</strong>
                     <div class="email-body-full" id="modalBody"></div>
                 </div>
+                <!-- AI Actions -->
+                <div class="modal-footer"
+                    style="padding-top: 20px; border-top: 1px solid #e2e8f0; display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn-view" onclick="summarizeEmail()"
+                        style="background: linear-gradient(135deg, #a0aec0 0%, #718096 100%);">
+                        <i class="fas fa-compress-alt"></i> AI Summarize
+                    </button>
+                    <button class="btn-view" onclick="speakEmail(event)"
+                        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        <i class="fas fa-volume-up"></i> Read Aloud
+                    </button>
+                    <button class="btn-view" onclick="pauseSpeech()" id="pauseBtn"
+                        style="display:none; background: #ecc94b; color: #744210;">
+                        <i class="fas fa-pause"></i> Pause
+                    </button>
+                    <button class="btn-view" onclick="resumeSpeech()" id="resumeBtn"
+                        style="display:none; background: #48bb78;">
+                        <i class="fas fa-play"></i> Resume
+                    </button>
+                    <button class="btn-view" onclick="stopSpeech()" id="stopBtn"
+                        style="display:none; background: #f56565;">
+                        <i class="fas fa-stop"></i> Stop
+                    </button>
+                </div>
+                <div id="summaryBox"
+                    style="display: none; margin-top: 20px; padding: 15px; background: #f7fafc; border-radius: 8px; border-left: 4px solid #667eea;">
+                    <strong>AI Summary:</strong>
+                    <p id="summaryText" style="margin-top: 10px; font-style: italic;"></p>
+                </div>
             </div>
         </div>
     </div>
@@ -231,15 +278,19 @@
                 <form id="sendEmailForm" onsubmit="sendEmail(event)">
                     <div class="detail-row full-width">
                         <strong>To:</strong>
-                        <input type="email" id="emailRecipient" class="search-box input" placeholder="recipient@example.com" required style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        <input type="email" id="emailRecipient" class="search-box input"
+                            placeholder="recipient@example.com" required
+                            style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
                     </div>
                     <div class="detail-row full-width">
                         <strong>Subject:</strong>
-                        <input type="text" id="emailSubject" class="search-box input" placeholder="Email subject" required style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        <input type="text" id="emailSubject" class="search-box input" placeholder="Email subject"
+                            required style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
                     </div>
                     <div class="detail-row full-width">
                         <strong>Message:</strong>
-                        <textarea id="emailBody" rows="8" placeholder="Write your message here..." required style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-family: inherit;"></textarea>
+                        <textarea id="emailBody" rows="8" placeholder="Write your message here..." required
+                            style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-family: inherit;"></textarea>
                     </div>
                     <button type="submit" class="btn-view" style="width: 100%; justify-content: center;">
                         <i class="fas fa-paper-plane"></i> Send Email
@@ -260,7 +311,8 @@
                 <form id="aiEmailForm" onsubmit="generateAIEmail(event)">
                     <div class="detail-row full-width">
                         <strong>Email Type:</strong>
-                        <select id="emailType" class="search-box input" required style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        <select id="emailType" class="search-box input" required
+                            style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
                             <option value="">Select email type...</option>
                             <option value="professional">Professional/Business</option>
                             <option value="followup">Follow-up</option>
@@ -273,9 +325,12 @@
                     </div>
                     <div class="detail-row full-width">
                         <strong>Email Purpose/Details:</strong>
-                        <textarea id="emailPurpose" rows="6" placeholder="Describe what the email should be about..." required style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-family: inherit;"></textarea>
+                        <textarea id="emailPurpose" rows="6" placeholder="Describe what the email should be about..."
+                            required
+                            style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-family: inherit;"></textarea>
                     </div>
-                    <button type="submit" class="btn-view" style="width: 100%; justify-content: center; background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%);">
+                    <button type="submit" class="btn-view"
+                        style="width: 100%; justify-content: center; background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%);">
                         <i class="fas fa-magic"></i> Generate Email
                     </button>
                 </form>
@@ -284,9 +339,45 @@
                         <strong>Generated Email:</strong>
                         <div class="email-body-full" id="generatedEmail"></div>
                     </div>
-                    <button class="btn-view" onclick="copyToClipboard()" style="width: 100%; justify-content: center; margin-top: 10px;">
+                    <button class="btn-view" onclick="copyToClipboard()"
+                        style="width: 100%; justify-content: center; margin-top: 10px;">
                         <i class="fas fa-copy"></i> Copy to Clipboard
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI To-Do Digest Modal -->
+    <div id="todoModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);">
+                <h2>AI To-Do Digest</h2>
+                <span class="close" onclick="closeModal('todoModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="todo-results">
+                    <div class="ai-suggestion-box">
+                        <h3><i class="fas fa-magic"></i> AI Prioritized Plan</h3>
+                        <div id="aiTodoContent" class="markdown-body"></div>
+                    </div>
+
+                    <div class="task-table-container">
+                        <h3><i class="fas fa-tasks"></i> Task Breakdown</h3>
+                        <div style="overflow-x: auto;">
+                            <table class="task-table">
+                                <thead>
+                                    <tr>
+                                        <th>Task</th>
+                                        <th>Urgency</th>
+                                        <th>Category</th>
+                                        <th>Source</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="todoTaskList"></tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -302,6 +393,100 @@
 
         function closeModal(modalId) {
             document.getElementById(modalId).style.display = 'none';
+            if (modalId === 'emailModal') {
+                document.getElementById('summaryBox').style.display = 'none';
+                window.speechSynthesis.cancel();
+            }
+        }
+
+        async function summarizeEmail() {
+            const body = document.getElementById('modalBody').textContent;
+            const summaryBox = document.getElementById('summaryBox');
+            const summaryText = document.getElementById('summaryText');
+
+            summaryText.textContent = "Summarizing...";
+            summaryBox.style.display = 'block';
+
+            try {
+                const response = await fetch('/api/summarize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ body })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    summaryText.textContent = result.summary;
+                } else {
+                    summaryText.textContent = "Error: " + result.message;
+                }
+            } catch (error) {
+                summaryText.textContent = "Failed to fetch summary.";
+            }
+        }
+
+        async function speakEmail(event) {
+            const body = document.getElementById('modalBody').textContent;
+            const speakBtn = event.currentTarget;
+            const originalHTML = speakBtn.innerHTML;
+
+            // Show loading state
+            speakBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            speakBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/clean_text', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ body })
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(result.cleaned_text);
+
+                    utterance.onstart = () => {
+                        document.getElementById('pauseBtn').style.display = 'flex';
+                        document.getElementById('stopBtn').style.display = 'flex';
+                        document.getElementById('resumeBtn').style.display = 'none';
+                    };
+
+                    utterance.onend = () => {
+                        document.getElementById('pauseBtn').style.display = 'none';
+                        document.getElementById('stopBtn').style.display = 'none';
+                        document.getElementById('resumeBtn').style.display = 'none';
+                    };
+
+                    window.speechSynthesis.speak(utterance);
+                } else {
+                    alert('Error cleaning text: ' + result.message);
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Failed to process text for reading.');
+            } finally {
+                speakBtn.innerHTML = originalHTML;
+                speakBtn.disabled = false;
+            }
+        }
+
+        function pauseSpeech() {
+            window.speechSynthesis.pause();
+            document.getElementById('pauseBtn').style.display = 'none';
+            document.getElementById('resumeBtn').style.display = 'flex';
+        }
+
+        function resumeSpeech() {
+            window.speechSynthesis.resume();
+            document.getElementById('pauseBtn').style.display = 'flex';
+            document.getElementById('resumeBtn').style.display = 'none';
+        }
+
+        function stopSpeech() {
+            window.speechSynthesis.cancel();
+            document.getElementById('pauseBtn').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('resumeBtn').style.display = 'none';
         }
 
         function openSendEmailModal() {
@@ -315,11 +500,11 @@
 
         async function sendEmail(event) {
             event.preventDefault();
-            
+
             const recipient = document.getElementById('emailRecipient').value;
             const subject = document.getElementById('emailSubject').value;
             const body = document.getElementById('emailBody').value;
-            
+
             try {
                 const response = await fetch('/api/send_email', {
                     method: 'POST',
@@ -328,9 +513,9 @@
                     },
                     body: JSON.stringify({ recipient, subject, body })
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
                     alert('Email logged successfully!');
                     closeModal('sendEmailModal');
@@ -346,10 +531,10 @@
 
         async function generateAIEmail(event) {
             event.preventDefault();
-            
+
             const emailType = document.getElementById('emailType').value;
             const purpose = document.getElementById('emailPurpose').value;
-            
+
             try {
                 const response = await fetch('/api/generate_ai_email', {
                     method: 'POST',
@@ -358,9 +543,9 @@
                     },
                     body: JSON.stringify({ email_type: emailType, purpose })
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
                     document.getElementById('generatedEmail').textContent = result.email;
                     document.getElementById('aiEmailOutput').style.display = 'block';
@@ -375,23 +560,46 @@
 
         async function generateTodoList() {
             if (!confirm('Generate AI-enhanced to-do list from today\'s reminders?')) return;
-            
+
+            const btn = event.currentTarget || document.querySelector('button[onclick="generateTodoList()"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Generating...</span>';
+            btn.disabled = true;
+
             try {
                 const response = await fetch('/api/generate_todo', {
                     method: 'POST'
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
-                    alert('To-do list generated successfully!\nFile: ' + result.filename);
-                    window.open('/download/' + result.filename, '_blank');
+                    // Update the UI with the results
+                    document.getElementById('todoModal').style.display = 'block';
+                    document.getElementById('aiTodoContent').innerHTML = marked.parse(result.ai_todo);
+
+                    // Populate task list
+                    const taskList = document.getElementById('todoTaskList');
+                    taskList.innerHTML = '';
+                    result.tasks.forEach(task => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${task.Task}</td>
+                            <td><span class="badge ${task.Urgency === 'high' ? 'badge-urgent' : 'badge-low'}">${task.Urgency}</span></td>
+                            <td>${task.Category}</td>
+                            <td>${task.Source}</td>
+                        `;
+                        taskList.appendChild(tr);
+                    });
                 } else {
                     alert('Error: ' + result.message);
                 }
             } catch (error) {
                 console.error('Error:', error);
                 alert('Failed to generate to-do list');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
             }
         }
 
@@ -402,9 +610,41 @@
             });
         }
 
+        // Refresh emails
+        async function refreshEmails() {
+            const btn = document.querySelector('.refresh-btn');
+            btn.classList.add('spinning');
+
+            try {
+                const response = await fetch('/api/refresh', { method: 'POST' });
+                if (response.ok) {
+                    window.location.reload();
+                }
+            } catch (error) {
+                console.error('Error refreshing:', error);
+            }
+
+            setTimeout(() => btn.classList.remove('spinning'), 1000);
+        }
+
+        // Update last update time
+        function updateLastUpdateTime() {
+            fetch('/api/stats')
+                .then(response => response.json())
+                .then(data => {
+                    const el = document.getElementById('lastUpdate');
+                    if (el) el.textContent = data.last_update || '--:--';
+                })
+                .catch(error => console.error('Error fetching stats:', error));
+        }
+
+        // Auto-refresh stats every 30 seconds
+        setInterval(updateLastUpdateTime, 30000);
+        updateLastUpdateTime();
+
         async function markComplete(emailId) {
             if (!confirm('Mark this reminder as complete?')) return;
-            
+
             try {
                 const response = await fetch('/api/mark_complete', {
                     method: 'POST',
@@ -413,9 +653,9 @@
                     },
                     body: JSON.stringify({ email_id: emailId })
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
                     alert('Reminder marked as complete!');
                     window.location.reload();
@@ -432,26 +672,26 @@
             const cards = document.querySelectorAll('.reminder-card');
             const today = new Date().toISOString().split('T')[0];
             let count = 0;
-            
+
             // Reset button styles
             document.querySelectorAll('.header-btn').forEach(btn => {
                 btn.style.background = 'rgba(255, 255, 255, 0.95)';
                 btn.style.color = '#667eea';
             });
-            
+
             // Highlight active button
             const activeBtn = document.getElementById('filter' + type.charAt(0).toUpperCase() + type.slice(1));
             if (activeBtn) {
                 activeBtn.style.background = '#667eea';
                 activeBtn.style.color = 'white';
             }
-            
+
             cards.forEach(card => {
                 const urgency = card.getAttribute('data-urgency');
                 const date = card.getAttribute('data-date');
-                
+
                 let show = false;
-                
+
                 if (type === 'all') {
                     show = true;
                 } else if (type === 'today') {
@@ -459,11 +699,11 @@
                 } else if (type === 'urgent') {
                     show = urgency === 'high';
                 }
-                
+
                 card.style.display = show ? 'block' : 'none';
                 if (show) count++;
             });
-            
+
             // Update today count if filtering by today
             if (type === 'today') {
                 document.getElementById('todayCount').textContent = count;
@@ -471,11 +711,18 @@
         }
 
         // Close modals on outside click
-        window.onclick = function(event) {
+        window.onclick = function (event) {
             if (event.target.classList.contains('modal')) {
                 event.target.style.display = 'none';
             }
         }
+        // Check for auto-generate parameter
+        window.onload = function () {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('generate') === 'true') {
+                generateTodoList();
+            }
+        };
     </script>
 
     <style>
@@ -505,4 +752,5 @@
         }
     </style>
 </body>
+
 </html>

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
+
 <body>
     <div class="container">
         <!-- Sidebar Navigation -->
@@ -34,7 +36,8 @@
                 </a>
             </nav>
             <div class="sidebar-footer">
-                <button class="refresh-btn" onclick="generateTodoList()" style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); margin-bottom: 10px;">
+                <button class="refresh-btn" onclick="generateTodoList()"
+                    style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); margin-bottom: 10px;">
                     <i class="fas fa-magic"></i>
                     <span>Generate To-Do List</span>
                 </button>
@@ -42,7 +45,8 @@
                     <i class="fas fa-paper-plane"></i>
                     <span>Send Email</span>
                 </button>
-                <button class="refresh-btn" onclick="openAIEmailModal()" style="background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%); margin-top: 10px;">
+                <button class="refresh-btn" onclick="openAIEmailModal()"
+                    style="background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%); margin-top: 10px;">
                     <i class="fas fa-robot"></i>
                     <span>Generate AI Email</span>
                 </button>
@@ -50,7 +54,8 @@
                     <i class="fas fa-sync-alt"></i>
                     <span>Refresh Emails</span>
                 </button>
-                <button class="refresh-btn" onclick="window.location.href='/logout'" style="background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%); margin-top: 10px;">
+                <button class="refresh-btn" onclick="window.location.href='/logout'"
+                    style="background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%); margin-top: 10px;">
                     <i class="fas fa-sign-out-alt"></i>
                     <span>Logout</span>
                 </button>
@@ -66,12 +71,28 @@
                     <h1 id="pageTitle">Inbox</h1>
                     <p class="subtitle">Manage your emails efficiently</p>
                 </div>
-                <div class="header-right">
-                    <div class="search-box">
-                        <i class="fas fa-search"></i>
-                        <input type="text" id="searchInput" placeholder="Search emails..." onkeyup="filterEmails()">
+                <div class="header-right" style="display: flex; align-items: center; gap: 20px;">
+                    {% if not has_gmail %}
+                    <div class="connection-banner"
+                        style="background: rgba(245, 101, 101, 0.1); padding: 10px 20px; border-radius: 10px; border: 1px solid #f56565; display: flex; align-items: center; gap: 15px;">
+                        <span style="color: #c53030; font-weight: 600;"><i class="fas fa-exclamation-triangle"></i>
+                            Gmail not connected</span>
+                        <a href="/authorize" class="header-btn"
+                            style="background: #f56565; color: white; padding: 8px 15px; border-radius: 8px; text-decoration: none; font-size: 14px;">Connect
+                            Gmail</a>
                     </div>
-                </div>
+                    {% else %}
+                    <div class="connection-status"
+                        style="background: rgba(72, 187, 120, 0.1); padding: 5px 15px; border-radius: 20px; border: 1px solid #48bb78; color: #2f855a; font-size: 13px; font-weight: 600;">
+                        <i class="fas fa-check-circle"></i> Gmail Connected
+                    </div>
+                    {% endif %}
+                    <div class="header-right">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="searchInput" placeholder="Search emails..." onkeyup="filterEmails()">
+                        </div>
+                    </div>
             </header>
 
             <!-- Stats Cards -->
@@ -102,7 +123,8 @@
                     </div>
                     <div class="stat-info">
                         <h3 id="remindersCount">
-                            {{ emails|selectattr('reminder', 'defined')|rejectattr('reminder', 'equalto', '')|list|length }}
+                            {{ emails|selectattr('reminder', 'defined')|rejectattr('reminder', 'equalto',
+                            '')|list|length }}
                         </h3>
                         <p>Reminders</p>
                     </div>
@@ -132,10 +154,8 @@
             <!-- Email List -->
             <div class="email-list" id="emailList">
                 {% for email in emails %}
-                <div class="email-card" 
-                     data-category="{{ email.category|default('Other') }}"
-                     data-spam="{{ email.spam|default('false') }}"
-                     onclick="showEmailDetails({{ loop.index0 }})">
+                <div class="email-card" data-category="{{ email.category|default('Other') }}"
+                    data-spam="{{ email.spam|default('false') }}" onclick="showEmailDetails({{ loop.index0 }})">
                     <div class="email-header">
                         <div class="email-sender">
                             <div class="avatar">{{ email.from[:1]|upper if email.from else 'U' }}</div>
@@ -225,6 +245,35 @@
                     <strong>Email Body:</strong>
                     <div class="email-body-full" id="modalBody"></div>
                 </div>
+                <!-- AI Actions -->
+                <div class="modal-footer"
+                    style="padding-top: 20px; border-top: 1px solid #e2e8f0; display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn-view" onclick="summarizeEmail()"
+                        style="background: linear-gradient(135deg, #a0aec0 0%, #718096 100%);">
+                        <i class="fas fa-compress-alt"></i> AI Summarize
+                    </button>
+                    <button class="btn-view" onclick="speakEmail(event)"
+                        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        <i class="fas fa-volume-up"></i> Read Aloud
+                    </button>
+                    <button class="btn-view" onclick="pauseSpeech()" id="pauseBtn"
+                        style="display:none; background: #ecc94b; color: #744210;">
+                        <i class="fas fa-pause"></i> Pause
+                    </button>
+                    <button class="btn-view" onclick="resumeSpeech()" id="resumeBtn"
+                        style="display:none; background: #48bb78;">
+                        <i class="fas fa-play"></i> Resume
+                    </button>
+                    <button class="btn-view" onclick="stopSpeech()" id="stopBtn"
+                        style="display:none; background: #f56565;">
+                        <i class="fas fa-stop"></i> Stop
+                    </button>
+                </div>
+                <div id="summaryBox"
+                    style="display: none; margin-top: 20px; padding: 15px; background: #f7fafc; border-radius: 8px; border-left: 4px solid #667eea;">
+                    <strong>AI Summary:</strong>
+                    <p id="summaryText" style="margin-top: 10px; font-style: italic;"></p>
+                </div>
             </div>
         </div>
     </div>
@@ -240,15 +289,18 @@
                 <form id="sendEmailForm" onsubmit="sendEmail(event)">
                     <div class="detail-row full-width">
                         <strong>To:</strong>
-                        <input type="email" id="emailRecipient" placeholder="recipient@example.com" required style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        <input type="email" id="emailRecipient" placeholder="recipient@example.com" required
+                            style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
                     </div>
                     <div class="detail-row full-width">
                         <strong>Subject:</strong>
-                        <input type="text" id="emailSubject" placeholder="Email subject" required style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        <input type="text" id="emailSubject" placeholder="Email subject" required
+                            style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
                     </div>
                     <div class="detail-row full-width">
                         <strong>Message:</strong>
-                        <textarea id="emailBody" rows="8" placeholder="Write your message here..." required style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-family: inherit;"></textarea>
+                        <textarea id="emailBody" rows="8" placeholder="Write your message here..." required
+                            style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-family: inherit;"></textarea>
                     </div>
                     <button type="submit" class="btn-view" style="width: 100%; justify-content: center;">
                         <i class="fas fa-paper-plane"></i> Send Email
@@ -269,7 +321,8 @@
                 <form id="aiEmailForm" onsubmit="generateAIEmail(event)">
                     <div class="detail-row full-width">
                         <strong>Email Type:</strong>
-                        <select id="emailType" required style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        <select id="emailType" required
+                            style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
                             <option value="">Select email type...</option>
                             <option value="professional">Professional/Business</option>
                             <option value="followup">Follow-up</option>
@@ -282,9 +335,12 @@
                     </div>
                     <div class="detail-row full-width">
                         <strong>Email Purpose/Details:</strong>
-                        <textarea id="emailPurpose" rows="6" placeholder="Describe what the email should be about..." required style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-family: inherit;"></textarea>
+                        <textarea id="emailPurpose" rows="6" placeholder="Describe what the email should be about..."
+                            required
+                            style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-family: inherit;"></textarea>
                     </div>
-                    <button type="submit" class="btn-view" style="width: 100%; justify-content: center; background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%);">
+                    <button type="submit" class="btn-view"
+                        style="width: 100%; justify-content: center; background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%);">
                         <i class="fas fa-magic"></i> Generate Email
                     </button>
                 </form>
@@ -293,7 +349,8 @@
                         <strong>Generated Email:</strong>
                         <div class="email-body-full" id="generatedEmail"></div>
                     </div>
-                    <button class="btn-view" onclick="copyToClipboard()" style="width: 100%; justify-content: center; margin-top: 10px;">
+                    <button class="btn-view" onclick="copyToClipboard()"
+                        style="width: 100%; justify-content: center; margin-top: 10px;">
                         <i class="fas fa-copy"></i> Copy to Clipboard
                     </button>
                 </div>
@@ -303,13 +360,13 @@
 
     <script>
         // Store emails data
-        const emailsData = {{ emails|tojson }};
-        
+        const emailsData = {{ emails| tojson }};
+
         // Filter emails by search
         function filterEmails() {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             const emailCards = document.querySelectorAll('.email-card');
-            
+
             emailCards.forEach(card => {
                 const text = card.textContent.toLowerCase();
                 card.style.display = text.includes(searchTerm) ? 'block' : 'none';
@@ -320,10 +377,10 @@
         function filterByCategory(category) {
             const emailCards = document.querySelectorAll('.email-card');
             const tabs = document.querySelectorAll('.tab-btn');
-            
+
             tabs.forEach(tab => tab.classList.remove('active'));
             event.target.classList.add('active');
-            
+
             emailCards.forEach(card => {
                 if (category === 'all') {
                     card.style.display = 'block';
@@ -338,7 +395,7 @@
         function showEmailDetails(index) {
             const email = emailsData[index];
             const modal = document.getElementById('emailModal');
-            
+
             document.getElementById('modalSubject').textContent = email.subject || 'No Subject';
             document.getElementById('modalFrom').textContent = email.from || 'Unknown';
             document.getElementById('modalDate').textContent = email.date || 'No Date';
@@ -346,7 +403,7 @@
             document.getElementById('modalSentiment').textContent = email.sentiment || 'N/A';
             document.getElementById('modalUrgency').textContent = email.urgency || 'N/A';
             document.getElementById('modalBody').textContent = email.body || 'No content';
-            
+
             const reminderRow = document.getElementById('reminderRow');
             if (email.reminder && email.reminder !== '') {
                 reminderRow.style.display = 'flex';
@@ -355,13 +412,107 @@
             } else {
                 reminderRow.style.display = 'none';
             }
-            
+
             modal.style.display = 'block';
         }
 
         // Close modal
         function closeModal(modalId) {
             document.getElementById(modalId).style.display = 'none';
+            if (modalId === 'emailModal') {
+                document.getElementById('summaryBox').style.display = 'none';
+                window.speechSynthesis.cancel();
+            }
+        }
+
+        async function summarizeEmail() {
+            const body = document.getElementById('modalBody').textContent;
+            const summaryBox = document.getElementById('summaryBox');
+            const summaryText = document.getElementById('summaryText');
+
+            summaryText.textContent = "Summarizing...";
+            summaryBox.style.display = 'block';
+
+            try {
+                const response = await fetch('/api/summarize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ body })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    summaryText.textContent = result.summary;
+                } else {
+                    summaryText.textContent = "Error: " + result.message;
+                }
+            } catch (error) {
+                summaryText.textContent = "Failed to fetch summary.";
+            }
+        }
+
+        async function speakEmail(event) {
+            const body = document.getElementById('modalBody').textContent;
+            const speakBtn = event.currentTarget;
+            const originalHTML = speakBtn.innerHTML;
+
+            // Show loading state
+            speakBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            speakBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/clean_text', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ body })
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(result.cleaned_text);
+
+                    utterance.onstart = () => {
+                        document.getElementById('pauseBtn').style.display = 'flex';
+                        document.getElementById('stopBtn').style.display = 'flex';
+                        document.getElementById('resumeBtn').style.display = 'none';
+                    };
+
+                    utterance.onend = () => {
+                        document.getElementById('pauseBtn').style.display = 'none';
+                        document.getElementById('stopBtn').style.display = 'none';
+                        document.getElementById('resumeBtn').style.display = 'none';
+                    };
+
+                    window.speechSynthesis.speak(utterance);
+                } else {
+                    alert('Error cleaning text: ' + result.message);
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Failed to process text for reading.');
+            } finally {
+                speakBtn.innerHTML = originalHTML;
+                speakBtn.disabled = false;
+            }
+        }
+
+        function pauseSpeech() {
+            window.speechSynthesis.pause();
+            document.getElementById('pauseBtn').style.display = 'none';
+            document.getElementById('resumeBtn').style.display = 'flex';
+        }
+
+        function resumeSpeech() {
+            window.speechSynthesis.resume();
+            document.getElementById('pauseBtn').style.display = 'flex';
+            document.getElementById('resumeBtn').style.display = 'none';
+        }
+
+        function stopSpeech() {
+            window.speechSynthesis.cancel();
+            document.getElementById('pauseBtn').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('resumeBtn').style.display = 'none';
         }
 
         function openSendEmailModal() {
@@ -375,11 +526,11 @@
 
         async function sendEmail(event) {
             event.preventDefault();
-            
+
             const recipient = document.getElementById('emailRecipient').value;
             const subject = document.getElementById('emailSubject').value;
             const body = document.getElementById('emailBody').value;
-            
+
             try {
                 const response = await fetch('/api/send_email', {
                     method: 'POST',
@@ -388,9 +539,9 @@
                     },
                     body: JSON.stringify({ recipient, subject, body })
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
                     alert('Email logged successfully!');
                     closeModal('sendEmailModal');
@@ -406,10 +557,10 @@
 
         async function generateAIEmail(event) {
             event.preventDefault();
-            
+
             const emailType = document.getElementById('emailType').value;
             const purpose = document.getElementById('emailPurpose').value;
-            
+
             try {
                 const response = await fetch('/api/generate_ai_email', {
                     method: 'POST',
@@ -418,9 +569,9 @@
                     },
                     body: JSON.stringify({ email_type: emailType, purpose })
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
                     document.getElementById('generatedEmail').textContent = result.email;
                     document.getElementById('aiEmailOutput').style.display = 'block';
@@ -435,24 +586,9 @@
 
         async function generateTodoList() {
             if (!confirm('Generate AI-enhanced to-do list from today\'s reminders?')) return;
-            
-            try {
-                const response = await fetch('/api/generate_todo', {
-                    method: 'POST'
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    alert('To-do list generated successfully!\nFile: ' + result.filename);
-                    window.open('/download/' + result.filename, '_blank');
-                } else {
-                    alert('Error: ' + result.message);
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Failed to generate to-do list');
-            }
+
+            // Redirect to reminders page where the UI for to-do is enhanced
+            window.location.href = '/reminders?generate=true';
         }
 
         function copyToClipboard() {
@@ -466,7 +602,7 @@
         async function refreshEmails() {
             const btn = document.querySelector('.refresh-btn');
             btn.classList.add('spinning');
-            
+
             try {
                 const response = await fetch('/api/refresh', { method: 'POST' });
                 if (response.ok) {
@@ -475,7 +611,7 @@
             } catch (error) {
                 console.error('Error refreshing:', error);
             }
-            
+
             setTimeout(() => btn.classList.remove('spinning'), 1000);
         }
 
@@ -494,11 +630,12 @@
         updateLastUpdateTime();
 
         // Close modal on outside click
-        window.onclick = function(event) {
+        window.onclick = function (event) {
             if (event.target.classList.contains('modal')) {
                 event.target.style.display = 'none';
             }
         }
     </script>
 </body>
+
 </html>

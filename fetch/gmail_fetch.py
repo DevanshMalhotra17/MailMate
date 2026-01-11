@@ -6,27 +6,11 @@ from googleapiclient.discovery import build
 import email
 import pandas as pd
 
-# If modifying scopes, delete token.json.
-SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']  # read-only; change if needed
-FILEPATH = "email.xlsx"
+# Gmail Fetch Core Logic
 
-def saveToExcel(df):
-    df.to_excel(FILEPATH)
-    print("Emails saved")
-
-def auth():
-    creds = None
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        with open('token.json', 'w') as f:
-            f.write(creds.to_json())
-    return creds
+def saveToExcel(df, filepath):
+    df.to_excel(filepath, index=False)
+    print(f"Emails saved to {filepath}")
 
 def list_messages(service, q=None, label_ids=None, max_results=10):
     response = service.users().messages().list(userId='me', q=q, labelIds=label_ids, maxResults=max_results).execute()
@@ -62,50 +46,64 @@ def download_attachments(service, msg):
         if filename:
             att_id = body.get('attachmentId')
             if att_id:
-                att = service.users().messages().attachments().get(
-                    userId='me', messageId=msg['id'], id=att_id
-                ).execute()
-                data = base64.urlsafe_b64decode(att['data'].encode('UTF-8'))
-                with open(filename, 'wb') as f:
-                    f.write(data)
-                print('Saved attachment', filename)
-def load_existingEmails():
-    if os.path.exists(FILEPATH):
-        return pd.read_excel(FILEPATH, engine="openpyxl")
+                try:
+                    att = service.users().messages().attachments().get(
+                        userId='me', messageId=msg['id'], id=att_id
+                    ).execute()
+                    data = base64.urlsafe_b64decode(att['data'].encode('UTF-8'))
+                    with open(filename, 'wb') as f:
+                        f.write(data)
+                    print('Saved attachment', filename)
+                except Exception as e:
+                    print(f"Error downloading attachment {filename}: {e}")
+
+def load_existingEmails(filepath):
+    if os.path.exists(filepath):
+        return pd.read_excel(filepath, engine="openpyxl")
     else:
         return pd.DataFrame(columns=["id", "date", "from", "subject", "body"])
 
-def main():
-    creds = auth()
+def main(creds=None, filepath="email.xlsx"):
+    if not creds:
+        print("Error: No credentials provided to main")
+        return
+        
     service = build('gmail', 'v1', credentials=creds)
     msgs = list_messages(service, q='is:unread', label_ids=None)
     print(f'Found {len(msgs)} messages')
     new_emails = []
-    existing_df = load_existingEmails()
-    existing_IDs = set(existing_df["id"].astype(str))
+    existing_df = load_existingEmails(filepath)
+    
+    # Create a mapping of id to date for quick lookup
+    id_to_date = {str(row['id']): str(row.get('date', '')) for _, row in existing_df.iterrows()}
+    
     for m in msgs:
-        if m["id"] in existing_IDs:
-            print(f"skipping message ID {m['id']}")
-            continue
-        msg = get_message(service, m['id'])
-        headers = {h['name']: h['value'] for h in msg['payload'].get('headers', [])}
-        print('From:', headers.get('From'))
-        print('Subject:', headers.get('Subject'))
-        text = get_payload_text(msg['payload'])
-        print('Body preview:', (text or '')[:400])
-        # download attachments if any
-        download_attachments(service, msg)
-        new_emails.append({
-            "id" : m["id"],
-            "date" : headers.get("Date", "n/a"),
-            "from" : headers.get("From", "n/a"),
-            "subject" : headers.get("Subject", "n/a"),
-            "body" : text
-        })
+        msg_id = str(m["id"])
+        if msg_id in id_to_date:
+            existing_date = id_to_date[msg_id]
+            if existing_date and existing_date not in ["", "nan", "No Date", "n/a"]:
+                continue
+        
+        try:
+            msg = get_message(service, m['id'])
+            headers = {h['name']: h['value'] for h in msg['payload'].get('headers', [])}
+            text = get_payload_text(msg['payload'])
+            
+            # download attachments if any
+            download_attachments(service, msg)
+            
+            new_emails.append({
+                "id" : m["id"],
+                "date" : headers.get("Date", "n/a"),
+                "from" : headers.get("From", "n/a"),
+                "subject" : headers.get("Subject", "n/a"),
+                "body" : text
+            })
+        except Exception as e:
+            print(f"Error fetching message {m['id']}: {e}")
+
     if new_emails:
         df=pd.concat([existing_df, pd.DataFrame(new_emails)], ignore_index=True)
-        saveToExcel(df)
-
-
-if __name__ == '__main__':
-    main()
+        # Keep the record with the most data (re-fetched date) if duplicates exist
+        df.drop_duplicates(subset=['id'], keep='last', inplace=True)
+        saveToExcel(df, filepath)
