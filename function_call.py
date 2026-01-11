@@ -18,7 +18,7 @@ functions = [
                         "properties": {
                             "reminder": {
                                 "type": "string",
-                                "description": "text of reminder"
+                                "description": "text of reminder. If no reminder or action is needed, return exactly an empty string ''."
                             },
                             "reminder_date" : {
                                 "type" : "string",
@@ -56,12 +56,15 @@ functions = [
 ]
 
 def extract_data(subject, body):
-    model = genai.GenerativeModel(model_name="models/gemini-1.5-flash-8b", tools = [
+    model = genai.GenerativeModel(model_name="models/gemini-1.5-flash", tools = [
         {
             "function_declarations": functions
         }
     ])
-    prompt = f"""Analyze the email and call the create_email_analysis function with the extracted details.
+    prompt = f"""Analyze the email and call the create_email_analysis function with the extracted details. 
+    IMPORTANT: If there is no clear task or reminder to be set, leave the 'reminder' field as an empty string. 
+    Do not use placeholders like 'None' or 'No action'.
+    
     Subject: {subject}
     Body: {body}"""
     try:
@@ -87,10 +90,15 @@ def extract_data(subject, body):
 def run_function_call(df):
     cols=["spam", "reminder", "reminder_date", "category", "sentiment", "urgency"]
     for col in cols:
-        if col not in df:
+        if col not in df.columns:
             df[col] = ""
         df[col] = df[col].astype(object)
-    new_rows=df[df["spam"].isna()]
+    
+    # Process rows where spam is missing or empty
+    def is_new(val):
+        return pd.isna(val) or str(val).strip() == ""
+    
+    new_rows = df[df["spam"].apply(is_new)]
     for idx,row in new_rows.iterrows():
         result=extract_data(row["subject"], row["body"])
         if result:

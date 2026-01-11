@@ -495,7 +495,7 @@ def summarize_email():
         
 {body}"""
         
-        model = genai.GenerativeModel("models/gemma-3-12b-it")
+        model = genai.GenerativeModel("models/gemini-1.5-flash")
         response = model.generate_content(prompt)
         
         return jsonify({
@@ -522,7 +522,7 @@ def clean_text():
         Email Content:
         {body}"""
         
-        model = genai.GenerativeModel("models/gemma-3-12b-it")
+        model = genai.GenerativeModel("models/gemini-1.5-flash")
         response = model.generate_content(prompt)
         
         return jsonify({
@@ -549,7 +549,7 @@ def generate_ai_email():
 
 Please write a professional, well-structured email. Include appropriate greeting, body, and closing."""
         
-        model = genai.GenerativeModel("models/gemma-3-12b-it")
+        model = genai.GenerativeModel("models/gemini-1.5-flash")
         response = model.generate_content(prompt)
         
         generated_email = response.text
@@ -623,7 +623,7 @@ def generate_todo():
 
 Please organize them by priority, add estimated time for each task, and suggest the best order to complete them. Format as a clear, actionable to-do list."""
         
-        model = genai.GenerativeModel("models/gemma-3-12b-it")
+        model = genai.GenerativeModel("models/gemini-1.5-flash")
         response = model.generate_content(prompt)
         
         ai_todo_list = response.text
