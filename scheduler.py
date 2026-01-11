@@ -18,6 +18,12 @@ import json
 
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
+def get_redirect_uri():
+    """Helper to get the correct redirect URI based on environment"""
+    if request.host == 'mailmate.online':
+        return url_for('oauth2callback', _external=True, _scheme='https')
+    return url_for('oauth2callback', _external=True)
+
 load_dotenv()
 
 app = Flask(__name__, template_folder="templates")
@@ -144,7 +150,7 @@ def authorize():
     flow = Flow.from_client_secrets_file(
         'credentials.json',
         scopes=SCOPES,
-        redirect_uri=url_for('oauth2callback', _external=True)
+        redirect_uri=get_redirect_uri()
     )
     authorization_url, state = flow.authorization_url(
         access_type='offline',
@@ -161,7 +167,7 @@ def oauth2callback():
         'credentials.json',
         scopes=SCOPES,
         state=state,
-        redirect_uri=url_for('oauth2callback', _external=True)
+        redirect_uri=get_redirect_uri()
     )
     authorization_response = request.url
     flow.fetch_token(authorization_response=authorization_response)
@@ -384,12 +390,15 @@ def spam():
                              spam_percentage=0)
 
 @app.route('/api/refresh', methods=['POST'])
+@login_required
 def refresh_emails():
     try:
-        run_pipeline()
+        username = session.get('username')
+        print(f"Manual refresh triggered for {username}")
+        run_pipeline_for_user(username)
         return redirect(request.referrer or url_for('index'))
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Refresh error: {e}")
         return redirect(request.referrer or url_for('index'))
 
 @app.route('/api/stats')
@@ -468,8 +477,10 @@ def send_email():
         return jsonify({'success': True, 'message': 'Email logged successfully'})
     
     except Exception as e:
-        print(f"Error logging email: {e}")
-        return jsonify({'success': False, 'message': str(e)}), 500
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Error sending/logging email: {e}\n{error_details}")
+        return jsonify({'success': False, 'message': f"Failed to send: {str(e)}"}), 500
 
 @app.route('/api/summarize', methods=['POST'])
 @login_required
