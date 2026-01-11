@@ -39,10 +39,32 @@ app.config["MAIL_PASSWORD"]="oupe afur cgeh xrio"
 app.config["MAIL_DEFAULT_SENDER"]=("MailMate", "devansh.malhotra2027@gmail.com")
 mail=Mail(app)
 
-API_KEY = os.getenv("API_KEY")
-if not API_KEY:
-    raise ValueError("API_KEY not found in .env file!")
-genai.configure(api_key=API_KEY)
+def get_api_keys():
+    """Load multiple API keys from .env for rotation"""
+    keys_str = os.getenv("API_KEYS", "")
+    if not keys_str:
+        key = os.getenv("API_KEY")
+        return [key] if key else []
+    return [k.strip() for k in keys_str.split(",") if k.strip()]
+
+def generate_with_rotation(model_name, prompt, model_type="standard"):
+    """Try multiple API keys until one works"""
+    keys = get_api_keys()
+    last_error = "No API keys configured"
+    
+    for key in keys:
+        try:
+            genai.configure(api_key=key)
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content(prompt)
+            return response
+        except Exception as e:
+            last_error = str(e)
+            print(f"API Key rotation: Key failed, trying next... Error: {e}")
+            continue
+            
+    raise Exception(f"All API keys failed. Last error: {last_error}")
+
 DATA_DIR = 'user_data'
 USERS_FILE = 'users.json'
 USERS = {}
@@ -154,6 +176,7 @@ def authorize():
     )
     authorization_url, state = flow.authorization_url(
         access_type='offline',
+        prompt='consent',
         include_granted_scopes='true'
     )
     session['oauth_state'] = state
@@ -495,8 +518,7 @@ def summarize_email():
         
 {body}"""
         
-        model = genai.GenerativeModel("models/gemini-1.5-flash")
-        response = model.generate_content(prompt)
+        response = generate_with_rotation("models/gemini-2.0-flash", prompt)
         
         return jsonify({
             'success': True,
@@ -522,8 +544,7 @@ def clean_text():
         Email Content:
         {body}"""
         
-        model = genai.GenerativeModel("models/gemini-1.5-flash")
-        response = model.generate_content(prompt)
+        response = generate_with_rotation("models/gemini-2.0-flash", prompt)
         
         return jsonify({
             'success': True,
@@ -549,8 +570,7 @@ def generate_ai_email():
 
 Please write a professional, well-structured email. Include appropriate greeting, body, and closing."""
         
-        model = genai.GenerativeModel("models/gemini-1.5-flash")
-        response = model.generate_content(prompt)
+        response = generate_with_rotation("models/gemini-2.0-flash", prompt)
         
         generated_email = response.text
         
@@ -623,8 +643,7 @@ def generate_todo():
 
 Please organize them by priority, add estimated time for each task, and suggest the best order to complete them. Format as a clear, actionable to-do list."""
         
-        model = genai.GenerativeModel("models/gemini-1.5-flash")
-        response = model.generate_content(prompt)
+        response = generate_with_rotation("models/gemini-2.0-flash", prompt)
         
         ai_todo_list = response.text
         
