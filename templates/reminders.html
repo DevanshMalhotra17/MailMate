@@ -201,8 +201,8 @@
                         </div>
 
                         <div class="reminder-footer">
-                            <button class="btn-view"
-                                onclick="viewEmailDetails('{{ email.subject }}', '{{ email.from }}', '{{ email.body }}')">
+                            <button class="btn-view" onclick="viewEmailDetails(this)" data-subject="{{ email.subject }}"
+                                data-from="{{ email.from }}" data-body="{{ email.body }}">
                                 <i class="fas fa-eye"></i> View Full Email
                             </button>
                             <button class="btn-view" onclick="markComplete('{{ email.id }}')"
@@ -384,7 +384,11 @@
     </div>
 
     <script>
-        function viewEmailDetails(subject, from, body) {
+        function viewEmailDetails(btn) {
+            const subject = btn.getAttribute('data-subject');
+            const from = btn.getAttribute('data-from');
+            const body = btn.getAttribute('data-body');
+
             document.getElementById('modalSubject').textContent = subject;
             document.getElementById('modalFrom').textContent = from;
             document.getElementById('modalBody').textContent = body;
@@ -517,7 +521,7 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    alert('Email logged successfully!');
+                    alert('Email sent successfully!');
                     closeModal('sendEmailModal');
                     document.getElementById('sendEmailForm').reset();
                 } else {

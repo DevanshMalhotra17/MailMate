@@ -3,3 +3,8 @@ credentials.json
 __pycache__/
 *.pyc
 users.json
+.env
+user_data/
+*.xlsx
+*.csv
+*.ics

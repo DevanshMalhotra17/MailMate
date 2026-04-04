@@ -7,14 +7,16 @@ import pandas as pd
 from fetch.gmail_fetch import main as fetch_gmail
 from function_call import run_function_call
 from collections import Counter
-import google.generativeai as genai
+import json
+import requests
 from functools import wraps
 from dotenv import load_dotenv
 from flask_mail import Mail, Message
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-import json
+import base64
+from email.mime.text import MIMEText
 
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
@@ -39,31 +41,36 @@ app.config["MAIL_PASSWORD"]="oupe afur cgeh xrio"
 app.config["MAIL_DEFAULT_SENDER"]=("MailMate", "devansh.malhotra2027@gmail.com")
 mail=Mail(app)
 
-def get_api_keys():
-    """Load multiple API keys from .env for rotation"""
-    keys_str = os.getenv("API_KEYS", "")
-    if not keys_str:
-        key = os.getenv("API_KEY")
-        return [key] if key else []
-    return [k.strip() for k in keys_str.split(",") if k.strip()]
-
 def generate_with_rotation(model_name, prompt, model_type="standard"):
-    """Try multiple API keys until one works"""
-    keys = get_api_keys()
-    last_error = "No API keys configured"
-    
-    for key in keys:
-        try:
-            genai.configure(api_key=key)
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content(prompt)
-            return response
-        except Exception as e:
-            last_error = str(e)
-            print(f"API Key rotation: Key failed, trying next... Error: {e}")
-            continue
-            
-    raise Exception(f"All API keys failed. Last error: {last_error}")
+    """Generates AI response using Groq"""
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise Exception("Missing GROQ_API_KEY in .env file")
+        
+    try:
+        response = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "llama-3.3-70b-versatile",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.7,
+            },
+            timeout=60
+        )
+        if response.status_code == 200:
+            content = response.json()["choices"][0]["message"]["content"]
+            class DummyResponse:
+                def __init__(self, text):
+                    self.text = text
+            return DummyResponse(content)
+        else:
+            raise Exception(f"Groq API error: {response.text}")
+    except Exception as e:
+        raise Exception(f"Failed to connect to Groq. {str(e)}")
 
 DATA_DIR = 'user_data'
 USERS_FILE = 'users.json'
@@ -350,8 +357,12 @@ def reminders():
         if os.path.exists(data_path):
             df = pd.read_excel(data_path)
             
-            # Filter emails that have reminders
+            # Filter emails that have reminders and are not completed
             reminder_df = df[df['reminder'].notna() & (df['reminder'] != '')]
+            if 'completed' in reminder_df.columns:
+                # Handle cases where 'completed' might be NaN (assumed False) or actual Boolean
+                reminder_df = reminder_df[reminder_df['completed'].fillna(False).astype(bool) == False]
+            
             reminders_list = reminder_df.to_dict('records')
             
             # Calculate stats
@@ -459,32 +470,55 @@ def get_emails():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/send_email', methods=['POST', 'GET'])
+@login_required
 def send_email():
     try:
         data = request.json
         if not data:
             return jsonify({'success': False, 'message': 'Invalid request data'}), 400
+            
+        username = session.get('username')
         recipient = data.get('recipient')
         subject = data.get('subject')
         body = data.get('body')
-        print(recipient)
-        msg=Message(
-            subject=subject,
-            recipients=[recipient],
-            body=body
-        )
-
-        mail.send(msg)
-
+        
+        token_path = get_user_token_path(username)
+        if not os.path.exists(token_path):
+            return jsonify({'success': False, 'message': 'Gmail account not connected. Please authorize first.'}), 401
+            
+        # Load credentials
+        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+        
+        # Refresh if necessary
+        if creds.expired and creds.refresh_token:
+            from google.auth.transport.requests import Request
+            creds.refresh(Request())
+            with open(token_path, 'w') as f:
+                f.write(creds.to_json())
+        
+        # Build Gmail service
+        service = build('gmail', 'v1', credentials=creds)
+        
+        # Create message
+        message = MIMEText(body)
+        message['to'] = recipient
+        message['subject'] = subject
+        
+        # Raw encoding
+        raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+        
+        # Send via Gmail API
+        service.users().messages().send(userId='me', body={'raw': raw_message}).execute()
+        
         # Log to file
         log_file = "sent_emails.xlsx"
-        
         email_data = {
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'sender': username,
             'recipient': recipient,
             'subject': subject,
             'body': body,
-            'status': 'logged'
+            'status': 'sent'
         }
         
         if os.path.exists(log_file):
@@ -495,14 +529,14 @@ def send_email():
         
         df.to_excel(log_file, index=False)
         
-        print(f"[EMAIL SENT] To: {recipient}, Subject: {subject}")
+        print(f"[EMAIL SENT VIA API] From: {username}, To: {recipient}, Subject: {subject}")
         
-        return jsonify({'success': True, 'message': 'Email logged successfully'})
+        return jsonify({'success': True, 'message': 'Email sent and logged successfully'})
     
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
-        print(f"Error sending/logging email: {e}\n{error_details}")
+        print(f"Error sending email via API: {e}\n{error_details}")
         return jsonify({'success': False, 'message': f"Failed to send: {str(e)}"}), 500
 
 @app.route('/api/summarize', methods=['POST'])

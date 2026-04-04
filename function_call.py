@@ -1,104 +1,88 @@
-import google.generativeai as genai
 import pandas as pd
+import requests
+import json
+import time
 import os
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
-def get_api_keys():
-    """Load multiple API keys from .env for rotation"""
-    keys_str = os.getenv("API_KEYS", "")
-    if not keys_str:
-        key = os.getenv("API_KEY")
-        return [key] if key else []
-    return [k.strip() for k in keys_str.split(",") if k.strip()]
+def get_groq_key():
+    key = os.getenv("GROQ_API_KEY")
+    if not key:
+        print("WARNING: Missing GROQ_API_KEY in .env file!")
+    return key
 
-functions = [
-    {
-        "name" : "create_email_analysis",
-        "description" : "analyze an email and decide if it needs a reminder. Return the reminder text, date, category, sentiment, urgency and check if it is spam.",
-        "parameters" : {"type": "object", 
-                        "properties": {
-                            "reminder": {
-                                "type": "string",
-                                "description": "text of reminder. If no reminder or action is needed, return exactly an empty string ''."
-                            },
-                            "reminder_date" : {
-                                "type" : "string",
-                                "description" : "date of the reminder in MM-DD-YYYY format or else just give none"
-                            },
-                            "category": {
-                                "type": "string",
-                                "enum": [
-                                    "Work", "Education", "Finance", "Promotions", "Personal", "Support", "Updates", "Spam", "Other"
-                                ],
-                                "description": "category or type of the email" # give examples in the string if not accurate
-                            },
-                            "sentiment": {
-                                "type": "string",
-                                "description": "emotional tone of the email" # give examples in the string if not accurate
-                            },
-                            "urgency": {
-                                "type": "string",
-                                "enum": [
-                                    "high", "low", "moderate"
-                                ],
-                                "description": "urgency of the email"
-                            },
-                            "spam": {
-                                "type": "string",
-                                "enum": [
-                                    "true", "false"
-                                ],
-                                "description": "true if email is spam, false if email is not spam"
-                            }
-                        },
-                        "required" : ["reminder", "reminder_date", "category", "sentiment", "urgency", "spam"]
-        }
-    }
-]
-
-def extract_data(subject, body):
-    keys = get_api_keys()
-    last_error = "No API keys configured"
+def batch_extract_data(emails_batch, max_retries=3):
+    api_key = get_groq_key()
+    last_error = "No GROQ_API_KEY configured"
     
-    prompt = f"""Analyze the email and call the create_email_analysis function with the extracted details. 
-    IMPORTANT: If there is no clear task or reminder to be set, leave the 'reminder' field as an empty string. 
-    Do not use placeholders like 'None' or 'No action'.
-    
-    Subject: {subject}
-    Body: {body}"""
+    if not api_key:
+        return None
+        
+    prompt = """You are an expert email parsing assistant. Your ONLY job is to analyze the following batch of emails and return a structured JSON response.
 
-    for key in keys:
+For EACH email, extract the following JSON fields EXACTLY as named:
+- "spam" (string "true" or "false")
+- "reminder" (string, the task/action, or "" if none)
+- "reminder_date" (string, MM-DD-YYYY or "")
+- "category" (string: Work, Education, Finance, Promotions, Personal, Support, Updates, Spam, Other)
+- "sentiment" (string, tone of email)
+- "urgency" (string: "high", "low", "moderate")
+
+Input Emails:
+"""
+    
+    for i, em in enumerate(emails_batch):
+        subject_str = str(em['subject'])[:200] if pd.notna(em['subject']) else ""
+        body_str = str(em['body'])[:1000] if pd.notna(em['body']) else ""
+        prompt += f"--- Email {i+1} ---\nSubject: {subject_str}\nBody: {body_str}\n\n"
+
+    prompt += "\nOutput ONLY valid JSON containing a single key 'results' which holds an array of objects (one for each email in exact order)."
+
+    for attempt in range(max_retries):
         try:
-            genai.configure(api_key=key)
-            model = genai.GenerativeModel(model_name="models/gemini-2.0-flash", tools = [
-                {
-                    "function_declarations": functions
-                }
-            ])
-            response = model.generate_content(prompt)
-            if response.candidates:
-                parts = response.candidates[0].content.parts
-                for part in parts:
-                    if "function_call" in part:
-                        fn_call = part.function_call
-                        args = fn_call.args
-                        return {
-                                "spam": args["spam"] if "spam" in args else False,
-                                "reminder": args["reminder"] if "reminder" in args else "",
-                                "reminder_date": args["reminder_date"] if "reminder_date" in args else "",
-                                "category": args["category"] if "category" in args else "Other",
-                                "sentiment": args["sentiment"] if "sentiment" in args else "Neutral",
-                                "urgency": args["urgency"] if "urgency" in args else "Low",
-                            }
-        except Exception as e:
-            last_error = str(e)
-            print(f"API Key rotation in function_call: Key failed, trying next... Error: {e}")
-            continue
+            response = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "llama-3.3-70b-versatile",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "response_format": {"type": "json_object"},
+                    "temperature": 0.0,
+                    "stream": False
+                },
+                timeout=60
+            )
             
-    print(f"All API keys failed in extract_data: {last_error}")
+            if response.status_code == 200:
+                out = response.json()["choices"][0]["message"]["content"]
+                try:
+                    data = json.loads(out)
+                    if "results" in data and isinstance(data["results"], list):
+                        return data["results"]
+                except json.JSONDecodeError:
+                    last_error = "Groq did not return formatted JSON"
+                    time.sleep(2)
+                    continue
+            else:
+                last_error = f"HTTP Error {response.status_code}: {response.text}"
+                if response.status_code == 429:
+                    print("Groq rate limit hit. Sleeping 10s...")
+                    time.sleep(10)
+                else:
+                    time.sleep(2)
+        except Exception as e:
+            error_msg = str(e)
+            last_error = error_msg
+            print(f"Groq API failed. Error: {error_msg}")
+            time.sleep(5)
+            
+    print(f"All retries failed in batch_extract_data: {last_error}")
     return None
 
 def run_function_call(df):
@@ -108,14 +92,38 @@ def run_function_call(df):
             df[col] = ""
         df[col] = df[col].astype(object)
     
-    # Process rows where spam is missing or empty
     def is_new(val):
         return pd.isna(val) or str(val).strip() == ""
     
     new_rows = df[df["spam"].apply(is_new)]
-    for idx,row in new_rows.iterrows():
-        result=extract_data(row["subject"], row["body"])
-        if result:
-            for key, value in result.items():
-                df.at[idx,key]=value
+    
+    if not new_rows.empty:
+        print(f"Processing {len(new_rows)} new emails for AI analysis using Groq BATCHING...")
+        
+    CHUNK_SIZE = 10 # Process 10 emails at once
+    indices = new_rows.index.tolist()
+    
+    for i in range(0, len(indices), CHUNK_SIZE):
+        batch_indices = indices[i:i + CHUNK_SIZE]
+        batch_emails = []
+        for idx in batch_indices:
+            batch_emails.append({
+                "subject": df.at[idx, "subject"],
+                "body": df.at[idx, "body"]
+            })
+            
+        print(f"Sending batch of {len(batch_emails)} emails to Groq...")
+        results = batch_extract_data(batch_emails)
+        
+        if results and len(results) == len(batch_emails):
+            for result_idx, result in enumerate(results):
+                df_idx = batch_indices[result_idx]
+                for key, value in result.items():
+                    if key in cols:
+                        df.at[df_idx, key] = str(value)
+        else:
+            print(f"Warning: Batch returned mismatched results. Expected {len(batch_emails)}.")
+            
+        time.sleep(2) # Friendly delay
+        
     return df
