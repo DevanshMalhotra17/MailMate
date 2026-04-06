@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spam Filter</title>
+    <title>MailMate — Spam Filter</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/style.css">
 
@@ -16,7 +16,7 @@
         <aside class="sidebar">
             <div class="logo">
                 <i class="fas fa-envelope-open-text"></i>
-                <h2>Email Manager</h2>
+                <h2>MailMate</h2>
             </div>
             <nav class="nav-menu">
                 <a href="/" class="nav-item">
@@ -37,28 +37,25 @@
                 </a>
             </nav>
             <div class="sidebar-footer">
-                <button class="refresh-btn" onclick="generateTodoList()"
-                    style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); margin-bottom: 10px;">
-                    <i class="fas fa-magic"></i>
-                    <span>Generate To-Do List</span>
+                <button class="refresh-btn" onclick="generateTodoList()">
+                    <i class="fas fa-list-check"></i>
+                    <span>Generate To-Do</span>
                 </button>
                 <button class="refresh-btn" onclick="openSendEmailModal()">
                     <i class="fas fa-paper-plane"></i>
                     <span>Send Email</span>
                 </button>
-                <button class="refresh-btn" onclick="openAIEmailModal()"
-                    style="background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%); margin-top: 10px;">
-                    <i class="fas fa-robot"></i>
-                    <span>Generate AI Email</span>
+                <button class="refresh-btn" onclick="openAIEmailModal()">
+                    <i class="fas fa-wand-magic-sparkles"></i>
+                    <span>AI Email</span>
                 </button>
-                <button class="refresh-btn" onclick="refreshEmails()" style="margin-top: 10px;">
+                <button class="refresh-btn" onclick="refreshEmails()">
                     <i class="fas fa-sync-alt"></i>
-                    <span>Refresh Emails</span>
+                    <span>Refresh</span>
                 </button>
-                <button class="refresh-btn" onclick="window.location.href='/logout'"
-                    style="background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%); margin-top: 10px;">
+                <button class="refresh-btn" onclick="window.location.href='/logout'">
                     <i class="fas fa-sign-out-alt"></i>
-                    <span>Logout</span>
+                    <span>Log out</span>
                 </button>
                 <p class="last-update">Last update: <span id="lastUpdate">--:--</span></p>
             </div>
@@ -171,28 +168,6 @@
                 </div>
                 {% endif %}
             </div>
-
-            <!-- Spam Protection Info -->
-            <div class="protection-info">
-                <div class="info-card">
-                    <i class="fas fa-shield-alt"></i>
-                    <h3>Advanced Protection</h3>
-                    <p>Our AI-powered spam filter analyzes email content, sender reputation, and patterns to keep your
-                        inbox clean.</p>
-                </div>
-                <div class="info-card">
-                    <i class="fas fa-brain"></i>
-                    <h3>Smart Learning</h3>
-                    <p>The system continuously learns from your feedback to improve spam detection accuracy over time.
-                    </p>
-                </div>
-                <div class="info-card">
-                    <i class="fas fa-lock"></i>
-                    <h3>Safe & Secure</h3>
-                    <p>All suspicious emails are quarantined safely, protecting you from phishing and malicious content.
-                    </p>
-                </div>
-            </div>
         </main>
     </div>
 
@@ -206,8 +181,7 @@
             <div class="modal-body">
                 <div class="warning-box">
                     <i class="fas fa-exclamation-triangle"></i>
-                    <strong>Warning:</strong> This email has been identified as spam. Be cautious with any links or
-                    attachments.
+                    <strong>Warning:</strong> This email has been identified as spam. Be cautious when opening.
                 </div>
                 <div class="detail-row">
                     <strong>From:</strong>

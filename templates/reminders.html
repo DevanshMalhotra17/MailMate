@@ -4,34 +4,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Email Reminders & To-Do</title>
+    <title>MailMate — Reminders</title>
     <link rel="stylesheet" href="/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         /* Additional styles specific to reminders page */
         .header-btn {
-            padding: 12px 20px;
-            background: rgba(255, 255, 255, 0.95);
-            border: none;
-            border-radius: 10px;
-            color: #667eea;
-            font-weight: 600;
+            padding: 10px 16px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            color: #6b7280;
+            font-weight: 500;
             cursor: pointer;
             display: flex;
             align-items: center;
             gap: 8px;
-            transition: all 0.3s ease;
+            transition: all 0.15s ease;
+            font-size: 13px;
+            font-family: inherit;
         }
 
         .header-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            border-color: #5eead4;
+            color: #0d9488;
         }
 
         .section-title {
-            color: white;
-            font-size: 24px;
+            color: #1a1a2e;
+            font-size: 18px;
+            font-weight: 700;
             margin-bottom: 20px;
         }
     </style>
@@ -43,7 +46,7 @@
         <aside class="sidebar">
             <div class="logo">
                 <i class="fas fa-envelope-open-text"></i>
-                <h2>Email Manager</h2>
+                <h2>MailMate</h2>
             </div>
             <nav class="nav-menu">
                 <a href="/" class="nav-item">
@@ -64,28 +67,25 @@
                 </a>
             </nav>
             <div class="sidebar-footer">
-                <button class="refresh-btn" onclick="generateTodoList()"
-                    style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); margin-bottom: 10px;">
-                    <i class="fas fa-magic"></i>
-                    <span>Generate To-Do List</span>
+                <button class="refresh-btn" onclick="generateTodoList()">
+                    <i class="fas fa-list-check"></i>
+                    <span>Generate To-Do</span>
                 </button>
                 <button class="refresh-btn" onclick="openSendEmailModal()">
                     <i class="fas fa-paper-plane"></i>
                     <span>Send Email</span>
                 </button>
-                <button class="refresh-btn" onclick="openAIEmailModal()"
-                    style="background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%); margin-top: 10px;">
-                    <i class="fas fa-robot"></i>
-                    <span>Generate AI Email</span>
+                <button class="refresh-btn" onclick="openAIEmailModal()">
+                    <i class="fas fa-wand-magic-sparkles"></i>
+                    <span>AI Email</span>
                 </button>
-                <button class="refresh-btn" onclick="refreshEmails()" style="margin-top: 10px;">
+                <button class="refresh-btn" onclick="refreshEmails()">
                     <i class="fas fa-sync-alt"></i>
-                    <span>Refresh Emails</span>
+                    <span>Refresh</span>
                 </button>
-                <button class="refresh-btn" onclick="window.location.href='/logout'"
-                    style="background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%); margin-top: 10px;">
+                <button class="refresh-btn" onclick="window.location.href='/logout'">
                     <i class="fas fa-sign-out-alt"></i>
-                    <span>Logout</span>
+                    <span>Log out</span>
                 </button>
                 <p class="last-update">Last update: <span id="lastUpdate">--:--</span></p>
             </div>
@@ -95,7 +95,7 @@
         <main class="main-content">
             <header class="header">
                 <div class="header-left">
-                    <h1>Email Reminders & To-Do</h1>
+                    <h1>Reminders</h1>
                     <p class="subtitle">Never miss an important follow-up</p>
                 </div>
                 <div class="header-actions" style="display: flex; gap: 10px;">
@@ -144,7 +144,7 @@
 
             <!-- Reminders List -->
             <div class="reminders-container">
-                <h2 class="section-title">Active Reminders</h2>
+                <h2 class="section-title" style="color: black;">Active Reminders</h2>
 
                 {% if reminders|length == 0 %}
                 <div class="empty-state">

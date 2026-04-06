@@ -5,6 +5,20 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "type": "java",
+            "name": "Q2",
+            "request": "launch",
+            "mainClass": "calico.Q2",
+            "projectName": "AI_EmailHandler_9f373739"
+        },
+        {
+            "type": "java",
+            "name": "Q1",
+            "request": "launch",
+            "mainClass": "calico.Q1",
+            "projectName": "AI_EmailHandler_9f373739"
+        },
+        {
             "type": "chrome",
             "request": "launch",
             "name": "Launch Chrome against localhost",

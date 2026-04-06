@@ -176,38 +176,65 @@ def signup():
 @app.route('/authorize')
 @login_required
 def authorize():
-    flow = Flow.from_client_secrets_file(
-        'credentials.json',
-        scopes=SCOPES,
-        redirect_uri=get_redirect_uri()
-    )
-    authorization_url, state = flow.authorization_url(
-        access_type='offline',
-        prompt='consent',
-        include_granted_scopes='true'
-    )
-    session['oauth_state'] = state
-    return redirect(authorization_url)
+    try:
+        if not os.path.exists('credentials.json'):
+            print("ERROR: credentials.json is missing in project root!")
+            return "Server configuration error: credentials.json missing", 500
+            
+        flow = Flow.from_client_secrets_file(
+            'credentials.json',
+            scopes=SCOPES,
+            redirect_uri=get_redirect_uri()
+        )
+        authorization_url, state = flow.authorization_url(
+            access_type='offline',
+            prompt='consent',
+            include_granted_scopes='true'
+        )
+        session['oauth_state'] = state
+        return redirect(authorization_url)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Error in /authorize: {e}\n{error_details}")
+        return f"Authorization error: {str(e)}", 500
 
 @app.route('/oauth2callback')
 @login_required
 def oauth2callback():
-    state = session['oauth_state']
-    flow = Flow.from_client_secrets_file(
-        'credentials.json',
-        scopes=SCOPES,
-        state=state,
-        redirect_uri=get_redirect_uri()
-    )
-    authorization_response = request.url
-    flow.fetch_token(authorization_response=authorization_response)
-    
-    credentials = flow.credentials
-    token_path = get_user_token_path(session['username'])
-    with open(token_path, 'w') as f:
-        f.write(credentials.to_json())
-    
-    return redirect(url_for('index'))
+    try:
+        state = session.get('oauth_state')
+        if not state:
+            return "Session error: oauth_state missing. Please try connecting again.", 400
+            
+        flow = Flow.from_client_secrets_file(
+            'credentials.json',
+            scopes=SCOPES,
+            state=state,
+            redirect_uri=get_redirect_uri()
+        )
+        
+        authorization_response = request.url
+        # Explicitly handle https if needed for fetch_token
+        if request.is_secure or request.headers.get('X-Forwarded-Proto') == 'https':
+            authorization_response = authorization_response.replace('http:', 'https:')
+            
+        flow.fetch_token(authorization_response=authorization_response)
+        
+        credentials = flow.credentials
+        token_path = get_user_token_path(session['username'])
+        with open(token_path, 'w') as f:
+            f.write(credentials.to_json())
+        
+        # Initial fetch immediately
+        run_pipeline_for_user(session['username'])
+        
+        return redirect(url_for('index'))
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Error in /oauth2callback: {e}\n{error_details}")
+        return f"OAuth Callback Error: {str(e)}", 500
 
 @app.route('/style.css')
 def serve_css():
