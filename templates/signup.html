@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,7 +8,11 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -27,7 +32,7 @@
             background: #fff;
             border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.06);
         }
 
         .signup-left {
@@ -67,7 +72,7 @@
 
         .signup-left p {
             font-size: 14px;
-            color: rgba(255,255,255,0.55);
+            color: rgba(255, 255, 255, 0.55);
             line-height: 1.6;
         }
 
@@ -143,10 +148,12 @@
         .form-control:focus {
             outline: none;
             border-color: #5eead4;
-            box-shadow: 0 0 0 3px rgba(94,234,212,0.12);
+            box-shadow: 0 0 0 3px rgba(94, 234, 212, 0.12);
         }
 
-        .form-control::placeholder { color: #d1d5db; }
+        .form-control::placeholder {
+            color: #d1d5db;
+        }
 
         .password-requirements {
             background: #f9fafb;
@@ -162,7 +169,9 @@
             margin-bottom: 6px;
         }
 
-        .password-requirements ul { list-style: none; }
+        .password-requirements ul {
+            list-style: none;
+        }
 
         .password-requirements li {
             color: #9ca3af;
@@ -173,9 +182,17 @@
             font-size: 12px;
         }
 
-        .password-requirements li i { font-size: 10px; }
-        .password-requirements li.valid { color: #059669; }
-        .password-requirements li.valid i { color: #059669; }
+        .password-requirements li i {
+            font-size: 10px;
+        }
+
+        .password-requirements li.valid {
+            color: #059669;
+        }
+
+        .password-requirements li.valid i {
+            color: #059669;
+        }
 
         .password-toggle {
             position: absolute;
@@ -187,7 +204,9 @@
             font-size: 15px;
         }
 
-        .password-toggle:hover { color: #6b7280; }
+        .password-toggle:hover {
+            color: #6b7280;
+        }
 
         .signup-btn {
             width: 100%;
@@ -208,7 +227,9 @@
             margin-top: 4px;
         }
 
-        .signup-btn:hover { background: #2d2d4e; }
+        .signup-btn:hover {
+            background: #2d2d4e;
+        }
 
         .signup-btn:disabled {
             opacity: 0.5;
@@ -228,15 +249,26 @@
             font-weight: 600;
         }
 
-        .signup-footer a:hover { text-decoration: underline; }
+        .signup-footer a:hover {
+            text-decoration: underline;
+        }
 
         @media (max-width: 700px) {
-            .signup-wrapper { flex-direction: column; }
-            .signup-left { padding: 32px 28px; }
-            .signup-right { padding: 32px 28px; }
+            .signup-wrapper {
+                flex-direction: column;
+            }
+
+            .signup-left {
+                padding: 32px 28px;
+            }
+
+            .signup-right {
+                padding: 32px 28px;
+            }
         }
     </style>
 </head>
+
 <body>
     <div class="signup-wrapper">
         <div class="signup-left">
@@ -245,7 +277,8 @@
                 <span>MailMate</span>
             </div>
             <h1>Get started<br>in seconds.</h1>
-            <p>Create an account and connect your Gmail to start receiving AI-powered email insights, smart categorization, and automated reminders.</p>
+            <p>Create an account and connect your Gmail to start receiving AI-powered email insights, smart
+                categorization, and automated reminders.</p>
         </div>
         <div class="signup-right">
             <h2>Create account</h2>
@@ -354,7 +387,7 @@
 
         document.getElementById('username').addEventListener('input', updateSubmitButton);
 
-        document.getElementById('signupForm').addEventListener('submit', function(e) {
+        document.getElementById('signupForm').addEventListener('submit', function (e) {
             const btn = this.querySelector('.signup-btn');
             const span = btn.querySelector('span');
             const icon = btn.querySelector('i');
@@ -366,4 +399,5 @@
         });
     </script>
 </body>
+
 </html>

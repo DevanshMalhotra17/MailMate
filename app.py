@@ -40,6 +40,11 @@ app.config["MAIL_USERNAME"]="devansh.malhotra2027@gmail.com"
 app.config["MAIL_PASSWORD"]="oupe afur cgeh xrio"
 app.config["MAIL_DEFAULT_SENDER"]=("MailMate", "devansh.malhotra2027@gmail.com")
 mail=Mail(app)
+app.config.update(
+    SESSION_COOKIE_SECURE=True if os.environ.get('RENDER') == 'true' else False,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+)
 
 def generate_with_rotation(model_name, prompt, model_type="standard"):
     """Generates AI response using Groq"""
@@ -177,12 +182,17 @@ def signup():
 @login_required
 def authorize():
     try:
-        if not os.path.exists('credentials.json'):
-            print("ERROR: credentials.json is missing in project root!")
-            return "Server configuration error: credentials.json missing", 500
+        creds_path = 'credentials.json'
+        if not os.path.exists(creds_path):
+            render_path = '/etc/secrets/credentials.json'
+            if os.path.exists(render_path):
+                creds_path = render_path
+            else:
+                print("ERROR: credentials.json is missing in project root and /etc/secrets!")
+                return "Server configuration error: credentials.json missing", 500
             
         flow = Flow.from_client_secrets_file(
-            'credentials.json',
+            creds_path,
             scopes=SCOPES,
             redirect_uri=get_redirect_uri()
         )
@@ -192,6 +202,7 @@ def authorize():
             include_granted_scopes='true'
         )
         session['oauth_state'] = state
+        session['code_verifier'] = flow.code_verifier
         return redirect(authorization_url)
     except Exception as e:
         import traceback
@@ -207,19 +218,31 @@ def oauth2callback():
         if not state:
             return "Session error: oauth_state missing. Please try connecting again.", 400
             
+        # Check for Render secret path or local path
+        creds_path = 'credentials.json'
+        if not os.path.exists(creds_path):
+            render_path = '/etc/secrets/credentials.json'
+            if os.path.exists(render_path):
+                creds_path = render_path
+
         flow = Flow.from_client_secrets_file(
-            'credentials.json',
+            creds_path,
             scopes=SCOPES,
             state=state,
             redirect_uri=get_redirect_uri()
         )
+        
+        # Retrieve the code verifier to avoid "Missing code verifier" error
+        flow.code_verifier = session.get('code_verifier')
         
         authorization_response = request.url
         # Explicitly handle https if needed for fetch_token
         if request.is_secure or request.headers.get('X-Forwarded-Proto') == 'https':
             authorization_response = authorization_response.replace('http:', 'https:')
             
-        flow.fetch_token(authorization_response=authorization_response)
+        # Explicitly pass the code_verifier from the session
+        verifier = session.get('code_verifier')
+        flow.fetch_token(authorization_response=authorization_response, code_verifier=verifier)
         
         credentials = flow.credentials
         token_path = get_user_token_path(session['username'])
