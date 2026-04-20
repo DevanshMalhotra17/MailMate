@@ -12,15 +12,25 @@ def saveToExcel(df, filepath):
     df.to_excel(filepath, index=False)
     print(f"Emails saved to {filepath}")
 
-def list_messages(service, q=None, label_ids=None, max_results=10):
-    response = service.users().messages().list(userId='me', q=q, labelIds=label_ids, maxResults=max_results).execute()
-    return response.get('messages', [])
+def list_messages(service, q=None, label_ids=None, max_results=500):
+    """Fetch all messages matching the query, paginating through all results."""
+    all_messages = []
+    page_token = None
+    while True:
+        response = service.users().messages().list(
+            userId='me', q=q, labelIds=label_ids,
+            maxResults=max_results, pageToken=page_token
+        ).execute()
+        all_messages.extend(response.get('messages', []))
+        page_token = response.get('nextPageToken')
+        if not page_token:
+            break
+    return all_messages
 
 def get_message(service, msg_id):
     return service.users().messages().get(userId='me', id=msg_id, format='full').execute()
 
 def get_payload_text(payload):
-    # Recursive walk to find text/plain or base64 body
     if 'parts' in payload:
         for part in payload['parts']:
             text = get_payload_text(part)
@@ -34,7 +44,6 @@ def get_payload_text(payload):
             if mime_type == 'text/plain' or mime_type.startswith('text/'):
                 return data.decode('utf-8', errors='replace')
             else:
-                # Return raw for other types
                 return data.decode('utf-8', errors='replace')
     return None
 
@@ -69,7 +78,7 @@ def main(creds=None, filepath="email.xlsx"):
         return
         
     service = build('gmail', 'v1', credentials=creds)
-    msgs = list_messages(service, q='is:unread', label_ids=None)
+    msgs = list_messages(service, q='in:inbox', label_ids=None)
     print(f'Found {len(msgs)} messages')
     new_emails = []
     existing_df = load_existingEmails(filepath)

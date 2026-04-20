@@ -25,8 +25,8 @@ def batch_extract_data(emails_batch, max_retries=3):
 
 For EACH email, extract the following JSON fields EXACTLY as named:
 - "spam" (string "true" or "false")
-- "reminder" (string, the task/action, or "" if none)
-- "reminder_date" (string, MM-DD-YYYY or "")
+- "reminder" (string: a SPECIFIC actionable task the user must do, or "" if none. IMPORTANT: Only create reminders for emails that genuinely require the user to take action — e.g. reply to someone, attend a meeting, pay a bill, submit a form. Do NOT create reminders for newsletters, promotional offers, automated notifications, social media updates, shipping updates with no action needed, or informational emails. Use "" for those.)
+- "reminder_date" (string, YYYY-MM-DD or "")
 - "category" (string: Work, Education, Finance, Promotions, Personal, Support, Updates, Spam, Other)
 - "sentiment" (string, tone of email)
 - "urgency" (string: "high", "low", "moderate")
@@ -100,7 +100,7 @@ def run_function_call(df):
     if not new_rows.empty:
         print(f"Processing {len(new_rows)} new emails for AI analysis using Groq BATCHING...")
         
-    CHUNK_SIZE = 10 # Process 10 emails at once
+    CHUNK_SIZE = 25  # Process 25 emails at once
     indices = new_rows.index.tolist()
     
     for i in range(0, len(indices), CHUNK_SIZE):

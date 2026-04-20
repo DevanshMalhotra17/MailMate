@@ -120,6 +120,18 @@ pipeline_state = {
     'processed_today': 0
 }
 
+_FAKE_REMINDERS = {
+    '', 'none', 'n/a', 'na', 'no', 'no reminder', 'no action needed',
+    'no action required', 'no reminder needed', 'no follow-up needed',
+    'nan', 'null', '-', 'no task', 'nothing',
+}
+
+def is_real_reminder(value):
+    """Return True only if the value is a genuine actionable reminder."""
+    if pd.isna(value):
+        return False
+    return str(value).strip().lower() not in _FAKE_REMINDERS
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     """Login page"""
@@ -407,8 +419,8 @@ def reminders():
         if os.path.exists(data_path):
             df = pd.read_excel(data_path)
             
-            # Filter emails that have reminders and are not completed
-            reminder_df = df[df['reminder'].notna() & (df['reminder'] != '')]
+            # Filter emails that have real reminders and are not completed
+            reminder_df = df[df['reminder'].apply(is_real_reminder)]
             if 'completed' in reminder_df.columns:
                 # Handle cases where 'completed' might be NaN (assumed False) or actual Boolean
                 reminder_df = reminder_df[reminder_df['completed'].fillna(False).astype(bool) == False]
@@ -696,30 +708,31 @@ def generate_todo():
         
         df = pd.read_excel(data_path)
         
-        # Filter reminders
-        reminder_df = df[df['reminder'].notna() & (df['reminder'] != '')]
+        # Filter real reminders
+        reminder_df = df[df['reminder'].apply(is_real_reminder)]
         
         # Get today's date
         today = datetime.now().strftime('%Y-%m-%d')
         
-        # Filter today's reminders (if date field exists)
-        today_reminders = []
+        # Include ALL valid reminders — don't gate on date
+        all_reminders = []
         for _, row in reminder_df.iterrows():
-            date_str = str(row.get('date', ''))
-            if today in date_str or date_str == 'none' or pd.isna(row.get('date')):
-                today_reminders.append({
-                    'reminder': row['reminder'],
-                    'urgency': row.get('urgency', 'low'),
-                    'category': row.get('category', 'Other'),
-                    'from': row.get('from', 'Unknown')
-                })
+            rem_date = str(row.get('reminder_date', ''))
+            urgency = str(row.get('urgency', 'low')).lower()
+            
+            all_reminders.append({
+                'reminder': row['reminder'],
+                'urgency': urgency,
+                'category': row.get('category', 'Other'),
+                'from': row.get('from', 'Unknown')
+            })
         
-        if not today_reminders:
-            return jsonify({'success': False, 'message': 'No reminders for today'}), 404
+        if not all_reminders:
+            return jsonify({'success': False, 'message': 'No reminders found. Try refreshing your inbox first.'}), 404
         
         # Create prompt for AI enhancement
         reminders_text = "\n".join([f"- {r['reminder']} (Urgency: {r['urgency']}, Category: {r['category']})" 
-                                    for r in today_reminders])
+                                    for r in all_reminders])
         
         prompt = f"""Based on these email reminders, create a prioritized to-do list:
 
@@ -735,7 +748,7 @@ Please organize them by priority, add estimated time for each task, and suggest 
         filename = f"todo_list_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         
         todo_data = []
-        for i, reminder in enumerate(today_reminders, 1):
+        for i, reminder in enumerate(all_reminders, 1):
             todo_data.append({
                 'Task #': i,
                 'Task': reminder['reminder'],
@@ -750,12 +763,12 @@ Please organize them by priority, add estimated time for each task, and suggest 
             pd.DataFrame(todo_data).to_excel(writer, sheet_name='Tasks', index=False)
             pd.DataFrame([{'AI Suggestions': ai_todo_list}]).to_excel(writer, sheet_name='AI Suggestions', index=False)
         
-        print(f"[TO-DO LIST GENERATED] File: {filename}, Tasks: {len(today_reminders)}")
+        print(f"[TO-DO LIST GENERATED] File: {filename}, Tasks: {len(all_reminders)}")
         
         return jsonify({
             'success': True,
             'filename': filename,
-            'task_count': len(today_reminders),
+            'task_count': len(all_reminders),
             'tasks': todo_data,
             'ai_todo': ai_todo_list
         })
