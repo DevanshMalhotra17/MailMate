@@ -14,20 +14,22 @@ def get_groq_key():
         print("WARNING: Missing GROQ_API_KEY in .env file!")
     return key
 
-def batch_extract_data(emails_batch, max_retries=3):
+def batch_extract_data(emails_batch, custom_categories=None, max_retries=3):
     api_key = get_groq_key()
     last_error = "No GROQ_API_KEY configured"
     
     if not api_key:
         return None
         
-    prompt = """You are an expert email parsing assistant. Your ONLY job is to analyze the following batch of emails and return a structured JSON response.
+    categories_str = ", ".join(custom_categories) if custom_categories else "Work, Education, Finance, Promotions, Personal, Support, Updates, Spam, Other"
+    
+    prompt = f"""You are an expert email parsing assistant. Your ONLY job is to analyze the following batch of emails and return a structured JSON response.
 
 For EACH email, extract the following JSON fields EXACTLY as named:
 - "spam" (string "true" or "false")
 - "reminder" (string: a SPECIFIC actionable task the user must do, or "" if none. IMPORTANT: Only create reminders for emails that genuinely require the user to take action — e.g. reply to someone, attend a meeting, pay a bill, submit a form. Do NOT create reminders for newsletters, promotional offers, automated notifications, social media updates, shipping updates with no action needed, or informational emails. Use "" for those.)
 - "reminder_date" (string, YYYY-MM-DD or "")
-- "category" (string: Work, Education, Finance, Promotions, Personal, Support, Updates, Spam, Other)
+- "category" (string: one of {categories_str})
 - "sentiment" (string, tone of email)
 - "urgency" (string: "high", "low", "moderate")
 
@@ -85,7 +87,7 @@ Input Emails:
     print(f"All retries failed in batch_extract_data: {last_error}")
     return None
 
-def run_function_call(df):
+def run_function_call(df, custom_categories=None):
     cols=["spam", "reminder", "reminder_date", "category", "sentiment", "urgency"]
     for col in cols:
         if col not in df.columns:
@@ -113,7 +115,7 @@ def run_function_call(df):
             })
             
         print(f"Sending batch of {len(batch_emails)} emails to Groq...")
-        results = batch_extract_data(batch_emails)
+        results = batch_extract_data(batch_emails, custom_categories=custom_categories)
         
         if results and len(results) == len(batch_emails):
             for result_idx, result in enumerate(results):

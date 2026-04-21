@@ -105,6 +105,20 @@ def get_user_token_path(username):
 def get_user_data_path(username):
     return os.path.join(DATA_DIR, f"{username}_emails.xlsx")
 
+def get_user_labels_path(username):
+    return os.path.join(DATA_DIR, f"{username}_labels.json")
+
+DEFAULT_CATEGORIES = ['Work', 'Education', 'Finance', 'Promotions', 'Personal', 'Support', 'Updates', 'Spam', 'Other']
+
+def get_user_categories(username):
+    """Get all categories including custom labels for a user."""
+    labels_path = get_user_labels_path(username)
+    custom_labels = []
+    if os.path.exists(labels_path):
+        with open(labels_path, 'r') as f:
+            custom_labels = json.load(f)
+    return DEFAULT_CATEGORIES + custom_labels
+
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -302,7 +316,8 @@ def run_pipeline_for_user(username):
         # Read and process emails
         if os.path.exists(data_path):
             df = pd.read_excel(data_path)
-            df = run_function_call(df)
+            custom_cats = get_user_categories(username)
+            df = run_function_call(df, custom_categories=custom_cats)
             
             df.to_excel(data_path, index=False)
             
@@ -339,12 +354,17 @@ def index():
         
         # Check if user has connected Gmail
         has_gmail = os.path.exists(get_user_token_path(session['username']))
+        custom_labels = []
+        labels_path = get_user_labels_path(session['username'])
+        if os.path.exists(labels_path):
+            with open(labels_path, 'r') as f:
+                custom_labels = json.load(f)
         
-        return render_template('index.html', emails=emails, has_gmail=has_gmail)
+        return render_template('index.html', emails=emails, has_gmail=has_gmail, custom_labels=custom_labels)
     
     except Exception as e:
         print(f"Error loading emails: {e}")
-        return render_template('index.html', emails=[])
+        return render_template('index.html', emails=[], custom_labels=[])
 
 @app.route('/analysis')
 @login_required
@@ -496,6 +516,59 @@ def refresh_emails():
     except Exception as e:
         print(f"Refresh error: {e}")
         return redirect(request.referrer or url_for('index'))
+
+@app.route('/api/labels', methods=['POST', 'DELETE'])
+@login_required
+def manage_labels():
+    username = session.get('username')
+    labels_path = get_user_labels_path(username)
+    
+    if os.path.exists(labels_path):
+        with open(labels_path, 'r') as f:
+            labels = json.load(f)
+    else:
+        labels = []
+        
+    if request.method == 'POST':
+        data = request.json
+        new_label = data.get('label')
+        if new_label and new_label not in labels and new_label not in DEFAULT_CATEGORIES:
+            labels.append(new_label)
+            with open(labels_path, 'w') as f:
+                json.dump(labels, f)
+            return jsonify({'success': True, 'labels': labels})
+        return jsonify({'success': False, 'message': 'Invalid label'}), 400
+        
+    elif request.method == 'DELETE':
+        data = request.json
+        label_to_remove = data.get('label')
+        if label_to_remove in labels:
+            labels.remove(label_to_remove)
+            with open(labels_path, 'w') as f:
+                json.dump(labels, f)
+            return jsonify({'success': True, 'labels': labels})
+        return jsonify({'success': False, 'message': 'Label not found'}), 404
+
+@app.route('/api/recategorize', methods=['POST'])
+@login_required
+def recategorize_email():
+    try:
+        data = request.json
+        email_id = data.get('email_id')
+        new_category = data.get('category')
+        
+        username = session.get('username')
+        data_path = get_user_data_path(username)
+        
+        if os.path.exists(data_path):
+            df = pd.read_excel(data_path)
+            if 'id' in df.columns:
+                df.loc[df['id'] == email_id, 'category'] = new_category
+                df.to_excel(data_path, index=False)
+                return jsonify({'success': True})
+        return jsonify({'success': False, 'message': 'Email not found'}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/stats')
 def get_stats():

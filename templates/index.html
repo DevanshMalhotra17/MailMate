@@ -34,6 +34,22 @@
                     <i class="fas fa-shield-alt"></i>
                     <span>Spam</span>
                 </a>
+                
+                <div class="sidebar-section">
+                    <h3 class="sidebar-title">Custom Labels</h3>
+                    <div id="customLabelsList" class="custom-labels-list">
+                        {% for label in custom_labels %}
+                        <div class="label-item">
+                            <span>{{ label }}</span>
+                            <i class="fas fa-times remove-label" onclick="removeLabel('{{ label }}')"></i>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="add-label-box">
+                        <input type="text" id="newLabelInput" placeholder="Add label...">
+                        <button onclick="addLabel()"><i class="fas fa-plus"></i></button>
+                    </div>
+                </div>
             </nav>
             <div class="sidebar-footer">
                 <button class="refresh-btn" onclick="generateTodoList()">
@@ -145,6 +161,9 @@
                 <button class="tab-btn" onclick="filterByCategory('Personal')">Personal</button>
                 <button class="tab-btn" onclick="filterByCategory('Finance')">Finance</button>
                 <button class="tab-btn" onclick="filterByCategory('Promotions')">Promotions</button>
+                {% for label in custom_labels %}
+                <button class="tab-btn" onclick="filterByCategory('{{ label }}')">{{ label }}</button>
+                {% endfor %}
             </div>
 
             <!-- Email List -->
@@ -220,7 +239,25 @@
                 </div>
                 <div class="detail-row">
                     <strong>Category:</strong>
-                    <span id="modalCategory" class="badge"></span>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <select id="modalCategorySelect" class="badge" style="border: 1px solid #e2e8f0; padding: 4px 8px; cursor: pointer;">
+                            <option value="Work">Work</option>
+                            <option value="Education">Education</option>
+                            <option value="Finance">Finance</option>
+                            <option value="Promotions">Promotions</option>
+                            <option value="Personal">Personal</option>
+                            <option value="Support">Support</option>
+                            <option value="Updates">Updates</option>
+                            <option value="Spam">Spam</option>
+                            <option value="Other">Other</option>
+                            {% for label in custom_labels %}
+                            <option value="{{ label }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <button onclick="updateEmailCategory()" class="btn-view" style="padding: 4px 8px; font-size: 11px;">
+                            <i class="fas fa-save"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="detail-row">
                     <strong>Sentiment:</strong>
@@ -387,15 +424,18 @@
             });
         }
 
+        let currentEmailId = null;
+
         // Show email details
         function showEmailDetails(index) {
             const email = emailsData[index];
+            currentEmailId = email.id;
             const modal = document.getElementById('emailModal');
 
             document.getElementById('modalSubject').textContent = email.subject || 'No Subject';
             document.getElementById('modalFrom').textContent = email.from || 'Unknown';
             document.getElementById('modalDate').textContent = email.date || 'No Date';
-            document.getElementById('modalCategory').textContent = email.category || 'Other';
+            document.getElementById('modalCategorySelect').value = email.category || 'Other';
             document.getElementById('modalSentiment').textContent = email.sentiment || 'N/A';
             document.getElementById('modalUrgency').textContent = email.urgency || 'N/A';
             document.getElementById('modalBody').textContent = email.body || 'No content';
@@ -410,6 +450,66 @@
             }
 
             modal.style.display = 'block';
+        }
+
+        async function addLabel() {
+            const labelInput = document.getElementById('newLabelInput');
+            const label = labelInput.value.trim();
+            if (!label) return;
+
+            try {
+                const response = await fetch('/api/labels', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ label })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    window.location.reload();
+                } else {
+                    alert(result.message);
+                }
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        async function removeLabel(label) {
+            if (!confirm(`Are you sure you want to remove the label "${label}"?`)) return;
+
+            try {
+                const response = await fetch('/api/labels', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ label })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    window.location.reload();
+                }
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        async function updateEmailCategory() {
+            const category = document.getElementById('modalCategorySelect').value;
+            if (!currentEmailId) return;
+
+            try {
+                const response = await fetch('/api/recategorize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email_id: currentEmailId, category })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert('Category updated!');
+                    window.location.reload();
+                }
+            } catch (error) {
+                console.error(error);
+            }
         }
 
         // Close modal
